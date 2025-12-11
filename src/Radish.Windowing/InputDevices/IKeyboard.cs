@@ -30,7 +30,6 @@ public interface IKeyboard : IInputDevice
     /// Converts the given key code (keyboard layout-independent) into its physical position on the keyboard.
     /// </summary>
     /// <seealso cref="ScancodeToKeycode"/>
-    /// <example>If this method is passed <see cref="Keys.W"/>, a qwerty keyboard will return <see cref="Keys.W "/> but a dvorak keyboard would return <see cref="Keys.Oemcomma"/>.</example>
     /// <param name="keycode">The keycode to convert.</param>
     /// <returns>The converted scancode.</returns>
     public Scancodes KeycodeToScancode(Keys keycode);
