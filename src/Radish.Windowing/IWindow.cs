@@ -60,4 +60,10 @@ public interface IWindow : IDisposable
     /// Before this is called, none of the internal window state is valid and accessing properties can result in undefined behaviour.
     /// </summary>
     public void Run();
+
+    /// <summary>
+    /// Request to close the window.
+    /// </summary>
+    /// <param name="force">If <see langword="true"/> then the <see cref="CloseRequested"/> callback will be skipped.</param>
+    public void Close(bool force = false);
 }

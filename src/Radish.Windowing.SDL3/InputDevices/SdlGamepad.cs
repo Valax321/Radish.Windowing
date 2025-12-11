@@ -15,6 +15,8 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
         public ITouchpad.FingerData[] FingersInternal => fingers;
     }
     
+    public bool IsConnected => SDL.IsGamepad(InstanceId);
+    
     private static readonly Dictionary<GamepadButtons, int>
         ButtonLookup = EnumUtility.GetEnumIndexMap<GamepadButtons>();
 
@@ -22,6 +24,8 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
         AxisLookup = EnumUtility.GetEnumIndexMap<GamepadAxes>();
 
     public event GamepadRemappedDelegate? Remapped;
+    public event GamepadButtonStateDelegate? ButtonDown;
+    public event GamepadButtonStateDelegate? ButtonUp;
 
     public GamepadModel Model
     {
@@ -41,6 +45,16 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
                 SDL.GamepadType.NintendoSwitchJoyconPair => GamepadModel.SwitchJoyconPair,
                 _ => GamepadModel.Generic
             };
+        }
+    }
+
+    public int PlayerIndex
+    {
+        get => SDL.GetGamepadPlayerIndexForID(InstanceId);
+        set
+        {
+            var ptr = SDL.GetGamepadFromID(InstanceId);
+            SDL.SetGamepadPlayerIndex(ptr, value < -1 ? -1 : value);
         }
     }
 
@@ -73,6 +87,11 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
             return;
 
         _buttonStates[ButtonLookup[rButton]] = @event.Down;
+        
+        if (@event.Down)
+            ButtonDown?.Invoke(rButton, true);
+        else
+            ButtonUp?.Invoke(rButton, false);
     }
 
     public void ProcessAxisEvent(in SDL.GamepadAxisEvent @event)
@@ -150,4 +169,17 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
         { SDL.GamepadAxis.RightX, GamepadAxes.RightStickX },
         { SDL.GamepadAxis.RightY, GamepadAxes.RightStickY }
     };
+
+    public override void ClearEvents()
+    {
+        Remapped = null;
+        ButtonDown = null;
+        ButtonUp = null;
+    }
+
+    public override string ToString()
+    {
+        var s = SDL.GetGamepadNameForID(InstanceId);
+        return string.IsNullOrEmpty(s) ? "Unnamed Gamepad" : s;
+    }
 }

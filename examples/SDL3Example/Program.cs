@@ -1,7 +1,7 @@
 ﻿using Radish.Windowing;
+using Radish.Windowing.Examples;
 using Radish.Windowing.SDL3;
 using SDL3;
-using SDL3Example;
 
 // These are supposed to be set before SDL_Init (which registering the provider eventually calls into)
 SDL.SetAppMetadata("SDL3 Windowing Example", "1.0.0", "com.radish.sdl3-example");

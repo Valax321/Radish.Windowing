@@ -8,7 +8,7 @@ namespace Radish.Windowing.SDL3.InputDevices;
 internal sealed class SdlKeyboard : SdlBaseInputDevice, IKeyboard
 {
     // Used to map keycode values to BitArray indices
-    private static readonly Dictionary<Keys, int> KeyIndexLookup = EnumUtility.GetEnumIndexMap<Keys>();
+    private static readonly Dictionary<Scancodes, int> KeyIndexLookup = EnumUtility.GetEnumIndexMap<Scancodes>();
     
     private readonly BitArray _keyMask = new(KeyIndexLookup.Count);
     
@@ -17,9 +17,12 @@ internal sealed class SdlKeyboard : SdlBaseInputDevice, IKeyboard
         InstanceId = instanceId;
     }
 
-    public bool IsPressed(Keys scancode)
+    public event KeyboardKeyStateDelegate? KeyDown;
+    public event KeyboardKeyStateDelegate? KeyUp;
+
+    public bool IsPressed(Scancodes scancode)
     {
-        if (scancode == Keys.None)
+        if (scancode == Scancodes.None)
             return false;
         
         return _keyMask[KeyIndexLookup[scancode]];
@@ -27,59 +30,54 @@ internal sealed class SdlKeyboard : SdlBaseInputDevice, IKeyboard
 
     internal void ProcessKeyEvent(in SDL.KeyboardEvent kb)
     {
-        var sc = SdlToRadishScancodes.GetValueOrDefault(kb.Scancode, Keys.None);
+        var sc = (Scancodes)kb.Scancode;
         // We don't know what kind of key this is, don't bother with it
-        if (sc == Keys.None)
+        if (sc == Scancodes.None || !Enum.IsDefined(sc))
             return;
         
         _keyMask[KeyIndexLookup[sc]] = kb.Down;
+        
+        if (kb.Down)
+            KeyDown?.Invoke(ScancodeToKeycode(sc), sc, true);
+        else
+            KeyUp?.Invoke(ScancodeToKeycode(sc), sc, false);
     }
     
     #region Keycode hell
 
-    public Keys KeycodeToScancode(Keys keycode)
+    public Scancodes KeycodeToScancode(Keys keycode)
     {
-        var sdlKey = RadishToSdlKeys.GetValueOrDefault(keycode, SDL.Keycode.Unknown);
+        var sdlKey = (SDL.Keycode)keycode;
         if (sdlKey == SDL.Keycode.Unknown)
-            return Keys.None;
+            return Scancodes.None;
         
         var scancode = SDL.GetScancodeFromKey(sdlKey, out _);
-        return SdlToRadishScancodes.GetValueOrDefault(scancode, Keys.None);
+        var sc2 = (Scancodes)scancode;
+        return Enum.IsDefined(sc2) ? sc2 : Scancodes.None;
     }
 
-    public Keys ScancodeToKeycode(Keys scancode)
+    public Keys ScancodeToKeycode(Scancodes scancode)
     {
-        var sdlScancode = RadishToSdlScancodes.GetValueOrDefault(scancode, SDL.Scancode.Unknown);
+        var sdlScancode = (SDL.Scancode)scancode;
         if (sdlScancode == SDL.Scancode.Unknown)
             return Keys.None;
         
         var key = SDL.GetKeyFromScancode(sdlScancode, SDL.Keymod.None, false);
-        return SdlToRadishKeys.GetValueOrDefault(key, Keys.None);
+        var k2 = (Keys)key;
+        return Enum.IsDefined(k2) ? k2 : Keys.None;
     }
     
-    private static readonly Dictionary<SDL.Keycode, Keys> SdlToRadishKeys = new()
-    {
-        //TODO
-        { SDL.Keycode.A, Keys.A }
-    };
-
-    private static readonly Dictionary<Keys, SDL.Keycode> RadishToSdlKeys = new()
-        //TODO
-    {
-        { Keys.A, SDL.Keycode.A }
-    };
-
-    private static readonly Dictionary<SDL.Scancode, Keys> SdlToRadishScancodes = new()
-    {
-        //TODO
-        { SDL.Scancode.A, Keys.A }
-    };
-
-    private static readonly Dictionary<Keys, SDL.Scancode> RadishToSdlScancodes = new()
-    {
-        //TODO
-        { Keys.A, SDL.Scancode.A }
-    };
-    
     #endregion
+
+    public override void ClearEvents()
+    {
+        KeyDown = null;
+        KeyUp = null;
+    }
+
+    public override string ToString()
+    {
+        var s = SDL.GetKeyboardNameForID(InstanceId);
+        return string.IsNullOrEmpty(s) ? "Unnamed Keyboard" : s;
+    }
 }

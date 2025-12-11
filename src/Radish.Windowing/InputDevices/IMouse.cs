@@ -10,6 +10,16 @@ namespace Radish.Windowing.InputDevices;
 public interface IMouse : IInputDevice
 {
     /// <summary>
+    /// Invoked when a mouse button is pressed.
+    /// </summary>
+    public event MouseButtonStateDelegate ButtonDown;
+    
+    /// <summary>
+    /// Invoked when a mouse button is release.d
+    /// </summary>
+    public event MouseButtonStateDelegate ButtonUp;
+    
+    /// <summary>
     /// Gets the current position of the mouse.
     /// </summary>
     public Vector2 Position { get; }

@@ -89,7 +89,10 @@ public class Sdl3Window : IWindow
         RunMainLoop();
         Closing?.Invoke();
     }
-    
+
+    /// <inheritdoc />
+    public void Close(bool force = false) => ProcessQuitEvent(force);
+
     #region Initialisation
 
     static Sdl3Window()
@@ -177,15 +180,21 @@ public class Sdl3Window : IWindow
             switch ((SDL.EventType)@event.Type)
             {
                 case SDL.EventType.Quit:
-                    ProcessQuitEvent();
+                    ProcessQuitEvent(false);
                     break;
             }
             EventProcess?.Invoke(in @event);
         }
     }
 
-    private void ProcessQuitEvent()
+    private void ProcessQuitEvent(bool skipEventCallback)
     {
+        if (skipEventCallback)
+        {
+            _closeRequested = true;
+            return;
+        }
+        
         var args = new WindowClosingEventArgs { ShouldClose = true };
         
         CloseRequested?.Invoke(ref args);

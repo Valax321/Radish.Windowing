@@ -1,4 +1,3 @@
-using System.Numerics;
 using JetBrains.Annotations;
 
 namespace Radish.Windowing.InputDevices;
@@ -13,12 +12,27 @@ public interface IGamepad : IInputDevice
     /// Invoked when a gamepad's layout changes.
     /// </summary>
     public event GamepadRemappedDelegate Remapped;
+
+    /// <summary>
+    /// Invoked when a gamepad button is pressed.
+    /// </summary>
+    public event GamepadButtonStateDelegate ButtonDown;
+
+    /// <summary>
+    /// Invoked when a gamepad button is released.
+    /// </summary>
+    public event GamepadButtonStateDelegate ButtonUp;
     
     /// <summary>
     /// What model of gamepad this is. Value may not be highly reliable with third-party gamepads,
     /// but is good enough for deciding on icon sets for on-screen prompts, etc.
     /// </summary>
     public GamepadModel Model { get; }
+    
+    /// <summary>
+    /// The player index assigned to this gamepad.
+    /// </summary>
+    public int PlayerIndex { get; set; }
     
     /// <summary>
     /// A list of touchpads this gamepad has.

@@ -14,6 +14,8 @@ internal abstract class SdlBaseInputDevice : IInputDevice,
         protected init => NativeHandle = (IntPtr)value;
     }
 
+    public abstract void ClearEvents();
+
     public int CompareTo(SdlBaseInputDevice? other)
     {
         if (ReferenceEquals(this, other)) return 0;

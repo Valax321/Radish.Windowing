@@ -47,6 +47,13 @@ public interface IInputContext : IDisposable
     public IReadOnlyCollection<IGamepad> Gamepads { get; }
 
     /// <summary>
+    /// Gets the gamepad with the given player ID, if one exists.
+    /// </summary>
+    /// <param name="index">The index to check.</param>
+    /// <returns>The gamepad if found, otherwise <see langword="null"/>.</returns>
+    public IGamepad? GetGamepadByPlayerIndex(int index);
+
+    /// <summary>
     /// Begin receiving text input.
     /// </summary>
     public void BeginTextInput(TextInputType type = TextInputType.Text, TextInputCapitalization capitalization = TextInputCapitalization.None, TextInputFlags flags = TextInputFlags.EnableAutoCorrect);
