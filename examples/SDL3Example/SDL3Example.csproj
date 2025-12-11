@@ -1,0 +1,19 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>WinExe</OutputType>
+        <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <PublishAot>true</PublishAot>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\src\Radish.Windowing.SDL3\Radish.Windowing.SDL3.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+      <PackageReference Include="SDL3-CS.Native" Version="3.3.2" />
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/examples/">
+    <Project Path="examples/SDL3Example/SDL3Example.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Radish.Windowing.SDL3/Radish.Windowing.SDL3.csproj" />
+    <Project Path="src/Radish.Windowing/Radish.Windowing.csproj" />
+  </Folder>
+</Solution>
