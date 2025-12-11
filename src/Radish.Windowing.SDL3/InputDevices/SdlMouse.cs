@@ -72,7 +72,7 @@ internal sealed class SdlMouse : SdlBaseInputDevice, IMouse
         WheelAxes = new Vector2(@event.X, @event.Y);
     }
 
-    public override void ClearEvents()
+    public void ClearEvents()
     {
         ButtonDown = null;
         ButtonUp = null;

@@ -35,7 +35,13 @@ public class Sdl3InputContext : IInputContext
 
     /// <inheritdoc/>
     public IReadOnlyCollection<IGamepad> Gamepads => _gamepads.Values;
+
+    /// <inheritdoc/>
+    public IKeyboard? PrimaryKeyboard => _keyboards.GetValueOrDefault(0u);
     
+    /// <inheritdoc />
+    public IMouse? PrimaryMouse => _mice.GetValueOrDefault(0u);
+
     #endregion
 
     #region Private Fields
@@ -43,7 +49,6 @@ public class Sdl3InputContext : IInputContext
     private readonly Sdl3Window _owner;
     
     private readonly List<SdlBaseInputDevice> _devices = [];
-    private readonly List<SdlBaseInputDevice> _removedDevices = [];
     
     private readonly Dictionary<uint, SdlGamepad> _gamepads = [];
     private readonly Dictionary<uint, SdlKeyboard> _keyboards = [];
@@ -58,6 +63,38 @@ public class Sdl3InputContext : IInputContext
         _owner = owner;
         _owner.EventProcess += OnEvent;
         
+        // This is the instance ID some platforms report normal keyboard/mouse input under,
+        // but SDL doesn't send input events for these. Just add 'em since we know we'll need them on most platforms.
+        {
+            var ev = new SDL.Event
+            {
+                Type = (uint)SDL.EventType.KeyboardAdded,
+                KDevice = 
+                {
+                    Which = 0,
+                    Timestamp = SDL.GetTicksNS()
+                }
+            };
+
+            SDL.PushEvent(ref ev);
+        }
+        
+        // This is the instance ID some platforms report normal keyboard/mouse input under,
+        // but SDL doesn't send input events for these. Just add 'em since we know we'll need them on most platforms.
+        {
+            var ev = new SDL.Event
+            {
+                Type = (uint)SDL.EventType.MouseAdded,
+                MDevice = 
+                {
+                    Which = 0,
+                    Timestamp = SDL.GetTicksNS()
+                }
+            };
+
+            SDL.PushEvent(ref ev);
+        }
+        
         HandleBuggedInitialEventReporting();
     }
     
@@ -71,7 +108,6 @@ public class Sdl3InputContext : IInputContext
         // events on startup like it does for gamepad events.
         // We can easily work around this by manually posting these events with the default devices,
         // but we have to be sure we're only doing it on the SDL versions with this issue.
-
         var v = VersionUtility.ParseSdlVersion(SDL.GetVersion());
         if (v.CompareTo(new Version(3, 3, 0)) >= 0) 
             return;
@@ -94,7 +130,7 @@ public class Sdl3InputContext : IInputContext
                 SDL.PushEvent(ref ev);
             }
         }
-            
+        
         var k = SDL.GetKeyboards(out _);
         if (k != null)
         {
@@ -180,28 +216,33 @@ public class Sdl3InputContext : IInputContext
     private void HandleKeyboardKeyEvent(in SDL.Event @event)
     {
         var kbId = @event.Key.Which;
-        var kb = _keyboards.GetValueOrDefault(kbId);
-        kb?.ProcessKeyEvent(in @event.Key);
+        
+        // Keyboards get extra special handling here because random shit can get picked up as a keyboard.
+        // Don't actually register it as a keyboard until it sends some kind of input.
+        if (!_keyboards.TryGetValue(kbId, out var kb))
+        {
+            kb = new SdlKeyboard(kbId);
+            AddInputDevice(kb);
+        }
+        kb.ProcessKeyEvent(in @event.Key);
     }
     
     private void HandleKeyboardConnectionEvent(in SDL.Event @event)
     {
-        var gpId = @event.KDevice.Which;
-        if (@event.GDevice.Type == SDL.EventType.KeyboardAdded)
+        var kbId = @event.KDevice.Which;
+        if (kbId != 0)
+            return; // See comment in HandleKeyboardKeyEvent for why this exists.
+
+        if (@event.KDevice.Type == SDL.EventType.KeyboardAdded)
         {
-            // I'm excusing this use of linq because device add events are pretty rare
-            var existingGamepad = _removedDevices
-                                      .OfType<SdlKeyboard>()
-                                      .FirstOrDefault(static (x, gpId) => x.InstanceId == gpId, gpId) 
-                                  ?? new SdlKeyboard(gpId);
-        
-            AddInputDevice(existingGamepad);
+            var existingKeyboard = new SdlKeyboard(kbId);
+            AddInputDevice(existingKeyboard);
         }
-        else if (@event.GDevice.Type == SDL.EventType.KeyboardRemoved)
+        else if (@event.KDevice.Type == SDL.EventType.KeyboardRemoved)
         {
-            if (!_keyboards.TryGetValue(gpId, out var existingKeyboard))
+            if (!_keyboards.TryGetValue(kbId, out var existingKeyboard))
             {
-                // If this ever happens it means we didn't catch a gamepad being inserted, which is a failure on our part.
+                // If this ever happens it means we didn't catch a keyboard being inserted, which is a failure on our part.
                 throw new InvalidOperationException(
                     "No existing keyboard instance in lookup table, this is a bug in Radish.Windowing (or less likely, SDL3)");
             }
@@ -216,16 +257,25 @@ public class Sdl3InputContext : IInputContext
         var gpId = @event.GDevice.Which;
         if (@event.GDevice.Type == SDL.EventType.GamepadAdded)
         {
-            // I'm excusing this use of linq because device add events are pretty rare
-            var existingGamepad = _removedDevices
-                                      .OfType<SdlGamepad>()
-                                      .FirstOrDefault(static (x, gpId) => x.InstanceId == gpId, gpId) 
-                                  ?? new SdlGamepad(gpId);
-        
+            // Gamepads need to be explicitly opened and closed, unlike other input devices.
+            var ptr = SDL.OpenGamepad(gpId);
+            if (ptr != IntPtr.Zero)
+            {
+                gpId = SDL.GetGamepadID(ptr);
+            }
+            
+            var existingGamepad = new SdlGamepad(gpId);
             AddInputDevice(existingGamepad);
         }
         else if (@event.GDevice.Type == SDL.EventType.GamepadRemoved)
         {
+            // Gamepads need to be explicitly opened and closed, unlike other input devices.
+            var ptr = SDL.GetGamepadFromID(gpId);
+            if (ptr != IntPtr.Zero)
+            {
+                SDL.CloseGamepad(ptr);
+            }
+            
             if (!_gamepads.TryGetValue(gpId, out var existingGamepad))
             {
                 // If this ever happens it means we didn't catch a gamepad being inserted, which is a failure on our part.
@@ -269,21 +319,16 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseConnectionEvent(in SDL.Event @event)
     {
         var gpId = @event.MDevice.Which;
-        if (@event.GDevice.Type == SDL.EventType.MouseAdded)
+        if (@event.MDevice.Type == SDL.EventType.MouseAdded)
         {
-            // I'm excusing this use of linq because device add events are pretty rare
-            var existingGamepad = _removedDevices
-                                      .OfType<SdlMouse>()
-                                      .FirstOrDefault(static (x, gpId) => x.InstanceId == gpId, gpId) 
-                                  ?? new SdlMouse(gpId);
-        
+            var existingGamepad = new SdlMouse(gpId);
             AddInputDevice(existingGamepad);
         }
-        else if (@event.GDevice.Type == SDL.EventType.MouseRemoved)
+        else if (@event.MDevice.Type == SDL.EventType.MouseRemoved)
         {
             if (!_mice.TryGetValue(gpId, out var existingGamepad))
             {
-                // If this ever happens it means we didn't catch a gamepad being inserted, which is a failure on our part.
+                // If this ever happens it means we didn't catch a mouse being inserted, which is a failure on our part.
                 throw new InvalidOperationException(
                     "No existing keyboard instance in lookup table, this is a bug in Radish.Windowing (or less likely, SDL3)");
             }
@@ -296,8 +341,6 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseButtonEvent(in SDL.Event @event)
     {
         var gpId = @event.Button.Which;
-        if (gpId == 0) // the instance ID can have weird values for the mouse. 0 is a valid mouse id, which we just map to the 'default' mouse
-            gpId = 1;
         
         var m = _mice.GetValueOrDefault(gpId);
         m?.ProcessButtonEvent(in @event.Button);
@@ -323,6 +366,9 @@ public class Sdl3InputContext : IInputContext
 
     private void AddInputDevice(SdlBaseInputDevice device)
     {
+        if (_devices.Contains(device))
+            return;
+        
         _devices.Add(device);
         switch (device)
         {
@@ -337,12 +383,14 @@ public class Sdl3InputContext : IInputContext
                 break;
         }
         
-        _removedDevices.Remove(device);
         DeviceAdded?.Invoke(device);
     }
 
     private void RemoveInputDevice(SdlBaseInputDevice device)
     {
+        if (!_devices.Contains(device))
+            return;
+        
         _devices.Remove(device);
         switch (device)
         {
@@ -357,7 +405,6 @@ public class Sdl3InputContext : IInputContext
                 break;
         }
         
-        _removedDevices.Add(device);
         DeviceRemoved?.Invoke(device);
     }
     
@@ -448,7 +495,6 @@ public class Sdl3InputContext : IInputContext
         
         // Clear em all out
         _devices.Clear();
-        _removedDevices.Clear();
         _gamepads.Clear();
         _mice.Clear();
         _keyboards.Clear();

@@ -170,7 +170,7 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
         { SDL.GamepadAxis.RightY, GamepadAxes.RightStickY }
     };
 
-    public override void ClearEvents()
+    public void ClearEvents()
     {
         Remapped = null;
         ButtonDown = null;

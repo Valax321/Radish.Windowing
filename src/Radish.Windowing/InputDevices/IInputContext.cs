@@ -34,10 +34,12 @@ public interface IInputContext : IDisposable
     /// <summary>
     /// A collection of all currently available keyboards.
     /// </summary>
+    /// <remarks>On Windows at least, this can contain some real bogus stuff (mice as keyboards, multiple of the same device). It is recommended to use <see cref="PrimaryKeyboard"/> instead if you don't actually need multiple keyboard support.</remarks>
     public IReadOnlyCollection<IKeyboard> Keyboards { get; }
     
     /// <summary>
     /// A collection of all currently available mice.
+    /// <remarks>It is recommended to use <see cref="PrimaryMouse"/> if you don't need multiple mouse support, as multi-mouse support can be flaky on some platforms.</remarks>
     /// </summary>
     public IReadOnlyCollection<IMouse> Mice { get; }
     
@@ -45,6 +47,16 @@ public interface IInputContext : IDisposable
     /// A collection of all currently available gamepads.
     /// </summary>
     public IReadOnlyCollection<IGamepad> Gamepads { get; }
+    
+    /// <summary>
+    /// Gets the 'main' keyboard, if one is present.
+    /// </summary>
+    public IKeyboard? PrimaryKeyboard { get; }
+    
+    /// <summary>
+    /// Gets the 'main' mouse, if one is present.
+    /// </summary>
+    public IMouse? PrimaryMouse { get; }
 
     /// <summary>
     /// Gets the gamepad with the given player ID, if one exists.

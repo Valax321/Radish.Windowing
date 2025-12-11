@@ -69,7 +69,7 @@ internal sealed class SdlKeyboard : SdlBaseInputDevice, IKeyboard
     
     #endregion
 
-    public override void ClearEvents()
+    public void ClearEvents()
     {
         KeyDown = null;
         KeyUp = null;
