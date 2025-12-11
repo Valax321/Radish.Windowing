@@ -54,6 +54,11 @@ public interface IInputContext : IDisposable
     /// Gets the 'main' mouse, if one is present.
     /// </summary>
     public IMouse? PrimaryMouse { get; }
+    
+    /// <summary>
+    /// Set after <see cref="BeginTextInput"/> is called, cleared when <see cref="EndTextInput"/> is called.
+    /// </summary>
+    public bool TextInputActive { get; }
 
     /// <summary>
     /// Gets the gamepad with the given player ID, if one exists.
