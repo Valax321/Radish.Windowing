@@ -15,6 +15,7 @@ public class Application : IDisposable
     private readonly IWindow _window;
     private IInputContext? _input;
     private IntPtr _graphicsDevice = IntPtr.Zero;
+    private readonly StringBuilder _textInputBuffer = new();
     
     public Application()
     {
@@ -54,6 +55,7 @@ public class Application : IDisposable
         _input = _window.CreateInput();
         _input.DeviceAdded += OnDeviceAdded;
         _input.DeviceRemoved += OnDeviceRemoved;
+        _input.TextInput += OnTextInput;
 
         _graphicsDevice = SDL.CreateRenderer(_window.NativeHandle, null);
         if (_graphicsDevice == IntPtr.Zero)
@@ -61,6 +63,11 @@ public class Application : IDisposable
 
         SDL.SetRenderLogicalPresentation(_graphicsDevice, 1280, 720, 
             SDL.RendererLogicalPresentation.IntegerScale);
+    }
+
+    private void OnTextInput(ReadOnlySpan<char> text)
+    {
+        _textInputBuffer.Append(text);
     }
 
     private void OnWindowUpdate(TimeSpan deltaTime)
@@ -99,6 +106,7 @@ public class Application : IDisposable
         }
         
         dp.Y += 24;
+        PrintSomeTextPlease($"Text Input Buffer (Editing: {_input.TextInputActive}): {_textInputBuffer}|");
         PrintSomeTextPlease($"Keyboards: {_input.Keyboards.Count}");
         foreach (var kb in _input.Keyboards)
         {
@@ -223,6 +231,22 @@ public class Application : IDisposable
 
     private void KbButtonUp(Keys key, Scancodes scancode, bool isDown)
     {
+        if (key == Keys.Grave && isDown && !_input!.TextInputActive)
+        {
+            _input!.BeginTextInput(TextInputType.Number);
+        }
+
+        if (key == Keys.Return && isDown && _input!.TextInputActive)
+        {
+            _input.EndTextInput();
+            _textInputBuffer.Clear();
+        }
+
+        if (key == Keys.Backspace && isDown && _input!.TextInputActive)
+        {
+            if (_textInputBuffer.Length > 0)
+                _textInputBuffer.Remove(_textInputBuffer.Length - 1, 1);
+        }
     }
 
     private void GpButtonUp(GamepadButtons button, bool isDown)
