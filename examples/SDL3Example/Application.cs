@@ -88,13 +88,16 @@ public class Application : IDisposable
 
         var dp = new Point(12, 12);
         
+        PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
+        dp.Y += 12;
+        
         PrintSomeTextPlease($"Devices: {_input!.InputDevices.Count}");
         foreach (var device in _input.InputDevices)
         {
             PrintSomeTextPlease($"  Device: {device} ({device.GetType().Name}), DeviceId: {device.NativeHandle}");
         }
         
-        dp.Y += 24;
+        dp.Y += 12;
         PrintSomeTextPlease($"Gamepads: {_input.Gamepads.Count}");
         foreach (var gp in _input.Gamepads)
         {
@@ -105,7 +108,7 @@ public class Application : IDisposable
             }
         }
         
-        dp.Y += 24;
+        dp.Y += 12;
         PrintSomeTextPlease($"Text Input Buffer (Editing: {_input.TextInputActive}): {_textInputBuffer}|");
         PrintSomeTextPlease($"Keyboards: {_input.Keyboards.Count}");
         foreach (var kb in _input.Keyboards)
@@ -113,7 +116,7 @@ public class Application : IDisposable
             PrintSomeTextPlease($"  {kb}: {MakeBitStringFromKeyboardStates(kb)}");
         }
         
-        dp.Y += 24;
+        dp.Y += 12;
         PrintSomeTextPlease($"Mice: {_input.Mice.Count}");
         foreach (var m in _input.Mice)
         {
@@ -233,7 +236,7 @@ public class Application : IDisposable
     {
         if (key == Keys.Grave && isDown && !_input!.TextInputActive)
         {
-            _input!.BeginTextInput(TextInputType.Number);
+            _input!.BeginTextInput();
         }
 
         if (key == Keys.Return && isDown && _input!.TextInputActive)
