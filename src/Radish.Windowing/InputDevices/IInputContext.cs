@@ -34,18 +34,20 @@ public interface IInputContext : IDisposable
     /// <summary>
     /// A collection of all currently available keyboards.
     /// </summary>
-    /// <remarks>On Windows at least, this can contain some real bogus stuff (mice as keyboards, multiple of the same device). It is recommended to use <see cref="PrimaryKeyboard"/> instead if you don't actually need multiple keyboard support.</remarks>
+    /// <remarks>Keyboards will not be listed here until actual key presses are received. This is a limitation of how keyboard devices are filtered on some OSes.</remarks>
     public IReadOnlyCollection<IKeyboard> Keyboards { get; }
     
     /// <summary>
     /// A collection of all currently available mice.
-    /// <remarks>It is recommended to use <see cref="PrimaryMouse"/> if you don't need multiple mouse support, as multi-mouse support can be flaky on some platforms.</remarks>
+    /// It is recommended to use <see cref="PrimaryMouse"/> if you don't need multiple mouse support.
+    /// <remarks>Mice will not be listed here until actual button presses or movements are received. This is a limitation of how mouse devices are filtered on some OSes.</remarks>
     /// </summary>
     public IReadOnlyCollection<IMouse> Mice { get; }
     
     /// <summary>
     /// A collection of all currently available gamepads.
     /// </summary>
+    /// <remarks>Unlike mice and keyboards, gamepads are registered immediately upon connection.</remarks>
     public IReadOnlyCollection<IGamepad> Gamepads { get; }
     
     /// <summary>
@@ -63,6 +65,10 @@ public interface IInputContext : IDisposable
     /// <summary>
     /// Begin receiving text input.
     /// </summary>
+    /// <remarks>The parameters to this method are only hints to the OS on what type of text input to show and no actual input validation is performed. You should do this yourself if the actual text content matters.</remarks>
+    /// <param name="type">Hint to the software keyboard for what type of text entry to show.</param>
+    /// <param name="capitalization">Hint to the software keyboard how to capitalise text entered.</param>
+    /// <param name="flags">Additional hints to the software keyboard on how to present text input to the user.</param>
     public void BeginTextInput(TextInputType type = TextInputType.Text, TextInputCapitalization capitalization = TextInputCapitalization.None, TextInputFlags flags = TextInputFlags.EnableAutoCorrect);
     
     /// <summary>
