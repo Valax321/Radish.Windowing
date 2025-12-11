@@ -49,11 +49,6 @@ public interface IInputContext : IDisposable
     public IReadOnlyCollection<IGamepad> Gamepads { get; }
     
     /// <summary>
-    /// Gets the 'main' keyboard, if one is present.
-    /// </summary>
-    public IKeyboard? PrimaryKeyboard { get; }
-    
-    /// <summary>
     /// Gets the 'main' mouse, if one is present.
     /// </summary>
     public IMouse? PrimaryMouse { get; }

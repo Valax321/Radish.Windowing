@@ -35,9 +35,6 @@ public class Sdl3InputContext : IInputContext
 
     /// <inheritdoc/>
     public IReadOnlyCollection<IGamepad> Gamepads => _gamepads.Values;
-
-    /// <inheritdoc/>
-    public IKeyboard? PrimaryKeyboard => _keyboards.GetValueOrDefault(0u);
     
     /// <inheritdoc />
     public IMouse? PrimaryMouse => _mice.GetValueOrDefault(0u);
@@ -63,38 +60,6 @@ public class Sdl3InputContext : IInputContext
         _owner = owner;
         _owner.EventProcess += OnEvent;
         
-        // This is the instance ID some platforms report normal keyboard/mouse input under,
-        // but SDL doesn't send input events for these. Just add 'em since we know we'll need them on most platforms.
-        {
-            var ev = new SDL.Event
-            {
-                Type = (uint)SDL.EventType.KeyboardAdded,
-                KDevice = 
-                {
-                    Which = 0,
-                    Timestamp = SDL.GetTicksNS()
-                }
-            };
-
-            SDL.PushEvent(ref ev);
-        }
-        
-        // This is the instance ID some platforms report normal keyboard/mouse input under,
-        // but SDL doesn't send input events for these. Just add 'em since we know we'll need them on most platforms.
-        {
-            var ev = new SDL.Event
-            {
-                Type = (uint)SDL.EventType.MouseAdded,
-                MDevice = 
-                {
-                    Which = 0,
-                    Timestamp = SDL.GetTicksNS()
-                }
-            };
-
-            SDL.PushEvent(ref ev);
-        }
-        
         HandleBuggedInitialEventReporting();
     }
     
@@ -104,7 +69,7 @@ public class Sdl3InputContext : IInputContext
 
     private void HandleBuggedInitialEventReporting()
     {
-        // Basically, older SDL versions don't emit KeyboardAdded and MouseAdded
+        // Basically, older SDL versions don't emit MouseAdded
         // events on startup like it does for gamepad events.
         // We can easily work around this by manually posting these events with the default devices,
         // but we have to be sure we're only doing it on the SDL versions with this issue.
@@ -123,25 +88,6 @@ public class Sdl3InputContext : IInputContext
                     MDevice =
                     {
                         Which = mid,
-                        Timestamp = SDL.GetTicksNS()
-                    }
-                };
-
-                SDL.PushEvent(ref ev);
-            }
-        }
-        
-        var k = SDL.GetKeyboards(out _);
-        if (k != null)
-        {
-            foreach (var kb in k)
-            {
-                var ev = new SDL.Event
-                {
-                    Type = (uint)SDL.EventType.KeyboardAdded,
-                    KDevice = 
-                    {
-                        Which = kb,
                         Timestamp = SDL.GetTicksNS()
                     }
                 };
@@ -230,11 +176,12 @@ public class Sdl3InputContext : IInputContext
     private void HandleKeyboardConnectionEvent(in SDL.Event @event)
     {
         var kbId = @event.KDevice.Which;
-        if (kbId != 0)
-            return; // See comment in HandleKeyboardKeyEvent for why this exists.
 
         if (@event.KDevice.Type == SDL.EventType.KeyboardAdded)
         {
+            if (kbId != 0)
+                return; // See comment in HandleKeyboardKeyEvent for why this exists.
+            
             var existingKeyboard = new SdlKeyboard(kbId);
             AddInputDevice(existingKeyboard);
         }
@@ -319,22 +266,26 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseConnectionEvent(in SDL.Event @event)
     {
         var gpId = @event.MDevice.Which;
+        
         if (@event.MDevice.Type == SDL.EventType.MouseAdded)
         {
-            var existingGamepad = new SdlMouse(gpId);
-            AddInputDevice(existingGamepad);
+            if (gpId != 0) // Only add non-0 mice when they're used later
+                return;
+            
+            var existingMouse = new SdlMouse(gpId);
+            AddInputDevice(existingMouse);
         }
         else if (@event.MDevice.Type == SDL.EventType.MouseRemoved)
         {
-            if (!_mice.TryGetValue(gpId, out var existingGamepad))
+            if (!_mice.TryGetValue(gpId, out var existingMouse))
             {
                 // If this ever happens it means we didn't catch a mouse being inserted, which is a failure on our part.
                 throw new InvalidOperationException(
                     "No existing keyboard instance in lookup table, this is a bug in Radish.Windowing (or less likely, SDL3)");
             }
         
-            existingGamepad.ClearEvents();
-            RemoveInputDevice(existingGamepad);
+            existingMouse.ClearEvents();
+            RemoveInputDevice(existingMouse);
         }
     }
     
@@ -342,22 +293,42 @@ public class Sdl3InputContext : IInputContext
     {
         var gpId = @event.Button.Which;
         
-        var m = _mice.GetValueOrDefault(gpId);
-        m?.ProcessButtonEvent(in @event.Button);
+        // Like with keyboards, we only add mice once they're used.
+        if (!_mice.TryGetValue(gpId, out var m))
+        {
+            m = new SdlMouse(gpId);
+            AddInputDevice(m);
+        }
+        
+        m.ProcessButtonEvent(in @event.Button);
     }
     
     private void HandleMouseMotionEvent(in SDL.Event @event)
     {
         var gpId = @event.Motion.Which;
-        var m = _mice.GetValueOrDefault(gpId);
-        m?.ProcessMotionEvent(in @event.Motion);
+        
+        // Like with keyboards, we only add mice once they're used.
+        if (!_mice.TryGetValue(gpId, out var m))
+        {
+            m = new SdlMouse(gpId);
+            AddInputDevice(m);
+        }
+        
+        m.ProcessMotionEvent(in @event.Motion);
     }
     
     private void HandleMouseWheelEvent(in SDL.Event @event)
     {
         var gpId = @event.Wheel.Which;
-        var m = _mice.GetValueOrDefault(gpId);
-        m?.ProcessWheelEvent(in @event.Wheel);
+        
+        // Like with keyboards, we only add mice once they're used.
+        if (!_mice.TryGetValue(gpId, out var m))
+        {
+            m = new SdlMouse(gpId);
+            AddInputDevice(m);
+        }
+        
+        m.ProcessWheelEvent(in @event.Wheel);
     }
     
     #endregion
