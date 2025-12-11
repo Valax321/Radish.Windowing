@@ -1,6 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
-using System.Runtime.InteropServices;
+using System.Text;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3;
 using SDL3;
@@ -43,43 +43,159 @@ public class Application : IDisposable
 
     public void Run() 
         => _window.Run();
-    
+
     [SuppressMessage("ReSharper", "BitwiseOperatorOnEnumWithoutFlags")]
     private void OnWindowLoad()
     {
         Console.WriteLine("Window loaded");
-        
+
         // In here the window is fully set up and valid to work on.
         // All post-construction initialisation should be done here.
         _input = _window.CreateInput();
         _input.DeviceAdded += OnDeviceAdded;
         _input.DeviceRemoved += OnDeviceRemoved;
 
-        SDL.GPUShaderFormat formats = 0;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            formats |= SDL.GPUShaderFormat.DXBC;
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            formats |= SDL.GPUShaderFormat.MSL;
-        }
-        else
-        {
-            formats |= SDL.GPUShaderFormat.SPIRV;
-        }
-        
-        _graphicsDevice = SDL.CreateGPUDevice(formats, true, null);
+        _graphicsDevice = SDL.CreateRenderer(_window.NativeHandle, null);
         if (_graphicsDevice == IntPtr.Zero)
             throw new NativeWindowException(SDL.GetError());
 
-        if (!SDL.ClaimWindowForGPUDevice(_graphicsDevice, _window.NativeHandle))
-            throw new NativeWindowException(SDL.GetError());
+        SDL.SetRenderLogicalPresentation(_graphicsDevice, 1280, 720, 
+            SDL.RendererLogicalPresentation.IntegerScale);
     }
 
+    private void OnWindowUpdate(TimeSpan deltaTime)
+    {
+        var kb = _input!.Keyboards.FirstOrDefault();
+        if (kb != null && kb.IsPressed(kb.KeycodeToScancode(Keys.Escape)))
+            _window.Close();
+    }
+
+    private void OnWindowRender(TimeSpan deltaTime)
+    {
+        SDL.SetRenderDrawColor(_graphicsDevice, 
+            Color.CornflowerBlue.R, Color.CornflowerBlue.G, 
+            Color.CornflowerBlue.B, Color.CornflowerBlue.A);
+        SDL.RenderClear(_graphicsDevice);
+
+        SDL.SetRenderDrawColor(_graphicsDevice, 255, 255, 255, (byte)SDL.AlphaOpaque);
+
+        var dp = new Point(12, 12);
+        
+        PrintSomeTextPlease($"Devices: {_input!.InputDevices.Count}");
+        foreach (var device in _input.InputDevices)
+        {
+            PrintSomeTextPlease($"  Device: {device} ({device.GetType().Name}), DeviceId: {device.NativeHandle}");
+        }
+        
+        dp.Y += 24;
+        PrintSomeTextPlease($"Gamepads: {_input.Gamepads.Count}");
+        foreach (var gp in _input.Gamepads)
+        {
+            PrintSomeTextPlease($"  {gp} ({gp.Model}): {MakeBitStringFromGamepadStates(gp)}");
+            for (var i = 0; i < gp.Touchpads.Count; ++i)
+            {
+                PrintSomeTextPlease($"    Touchpad {i + 1}: {string.Join(", ", gp.Touchpads[i].Fingers.Select(x => $"{x.Position:F3} {x.Pressure:F3}"))}");
+            }
+        }
+        
+        dp.Y += 24;
+        PrintSomeTextPlease($"Keyboards: {_input.Keyboards.Count}");
+        foreach (var kb in _input.Keyboards)
+        {
+            PrintSomeTextPlease($"  {kb}: {MakeBitStringFromKeyboardStates(kb)}");
+        }
+        
+        dp.Y += 24;
+        PrintSomeTextPlease($"Mice: {_input.Mice.Count}");
+        foreach (var m in _input.Mice)
+        {
+            PrintSomeTextPlease($"  {m}: {MakeBitStringFromMouseStates(m)}");
+        }
+        
+        SDL.RenderPresent(_graphicsDevice);
+        return;
+
+        void PrintSomeTextPlease(string text)
+        {
+            SDL.RenderDebugText(_graphicsDevice, dp.X, dp.Y, text);
+            dp.Y += 12;
+        }
+    }
+
+    private static string MakeBitStringFromGamepadStates(IGamepad gamepad)
+    {
+        var sb = new StringBuilder();
+        foreach (var k in Enum.GetValues<GamepadButtons>())
+        {
+            if (k == GamepadButtons.None)
+                continue;
+
+            sb.Append(gamepad.IsPressed(k) ? '1' : '0');
+        }
+        
+        foreach (var a in Enum.GetValues<GamepadAxes>())
+        {
+            if (a == GamepadAxes.None)
+                continue;
+
+            sb.Append($" {gamepad.GetAxisValue(a):F3}");
+        }
+        
+        return sb.ToString();
+    }
+    
+    private static string MakeBitStringFromKeyboardStates(IKeyboard keyboard)
+    {
+        var sb = new StringBuilder();
+        foreach (var k in Enum.GetValues<Scancodes>())
+        {
+            if (k == Scancodes.None)
+                continue;
+
+            sb.Append(keyboard.IsPressed(k) ? '1' : '0');
+        }
+        return sb.ToString();
+    }
+    
+    private static string MakeBitStringFromMouseStates(IMouse mouse)
+    {
+        var sb = new StringBuilder();
+        foreach (var k in Enum.GetValues<MouseButtons>())
+        {
+            if (k == MouseButtons.None)
+                continue;
+
+            sb.Append(mouse.IsPressed(k) ? '1' : '0');
+        }
+
+        sb.Append($" {mouse.Position}");
+        sb.Append($" {mouse.PositionDelta}");
+        sb.Append($" {mouse.WheelAxes}");
+        
+        return sb.ToString();
+    }
+
+    private void OnWindowClosing()
+    {
+        Console.WriteLine("Window closing");
+        
+        if (_graphicsDevice != IntPtr.Zero)
+        {
+            SDL.DestroyRenderer(_graphicsDevice);
+            _graphicsDevice = IntPtr.Zero;
+        }
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+        _input?.Dispose();
+        _window.Dispose();
+    }
+    
     private void OnDeviceAdded(IInputDevice device)
     {
-        Console.WriteLine($"{device.GetType().Name} added: {device} (0x{device.NativeHandle:x4})");
+        Console.WriteLine($"{device.GetType().Name} added: {device}");
 
         switch (device)
         {
@@ -98,77 +214,18 @@ public class Application : IDisposable
 
     private void OnDeviceRemoved(IInputDevice device)
     {
-        Console.WriteLine($"Device removed: {device} (0x{device.NativeHandle:x4})");
+        Console.WriteLine($"Device removed: {device}");
     }
     
     private void MouseButtonUp(MouseButtons button, bool isDown)
     {
-        Console.WriteLine($"Pressed: {button} {isDown}");
     }
 
     private void KbButtonUp(Keys key, Scancodes scancode, bool isDown)
     {
-        Console.WriteLine($"Pressed: {key} {isDown}");
     }
 
     private void GpButtonUp(GamepadButtons button, bool isDown)
     {
-        Console.WriteLine($"Pressed: {button} {isDown}");
-    }
-
-    private void OnWindowUpdate(TimeSpan deltaTime)
-    {
-        var kb = _input!.Keyboards.FirstOrDefault();
-        if (kb != null && kb.IsPressed(kb.KeycodeToScancode(Keys.Escape)))
-            _window.Close();
-    }
-
-    private unsafe void OnWindowRender(TimeSpan deltaTime)
-    {
-        var commandBuffer = SDL.AcquireGPUCommandBuffer(_graphicsDevice);
-        if (!SDL.WaitAndAcquireGPUSwapchainTexture(commandBuffer, _window.NativeHandle, out var swapchainTex,
-                out _,
-                out _))
-        {
-            Console.Error.WriteLine(SDL.GetError());
-            return;
-        }
-
-        if (swapchainTex != IntPtr.Zero)
-        {
-            var targetInfo = new SDL.GPUColorTargetInfo()
-            {
-                Texture = swapchainTex,
-                ClearColor = Color.CornflowerBlue.ToSdlColor(),
-                LoadOp = SDL.GPULoadOp.Clear,
-                StoreOp = SDL.GPUStoreOp.Store
-            };
-
-            var pass = SDL.BeginGPURenderPass(commandBuffer, (IntPtr)(&targetInfo), 
-                1, IntPtr.Zero);
-            SDL.EndGPURenderPass(pass);
-        }
-
-        SDL.SubmitGPUCommandBuffer(commandBuffer);
-    }
-
-    private void OnWindowClosing()
-    {
-        Console.WriteLine("Window closing");
-        
-        SDL.ReleaseWindowFromGPUDevice(_graphicsDevice, _window.NativeHandle);
-        
-        if (_graphicsDevice != IntPtr.Zero)
-        {
-            SDL.DestroyRenderer(_graphicsDevice);
-            _graphicsDevice = IntPtr.Zero;
-        }
-    }
-
-    public void Dispose()
-    {
-        GC.SuppressFinalize(this);
-        _input?.Dispose();
-        _window.Dispose();
     }
 }
