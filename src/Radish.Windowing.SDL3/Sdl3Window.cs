@@ -1,4 +1,5 @@
-﻿using JetBrains.Annotations;
+﻿using System.Drawing;
+using JetBrains.Annotations;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3.InputDevices;
 using SDL3;
@@ -26,7 +27,8 @@ public class Sdl3Window : IWindow
         set
         {
             ThrowIfNativeHandleInvalid();
-            SDL.SetWindowTitle(NativeHandle, value);
+            if (!SDL.SetWindowTitle(NativeHandle, value))
+                throw new NativeWindowException(SDL.GetError());
         }
     }
 
@@ -42,14 +44,285 @@ public class Sdl3Window : IWindow
         set
         {
             ThrowIfNativeHandleInvalid();
-
             if (value)
                 SDL.ShowWindow(NativeHandle);
             else
                 SDL.HideWindow(NativeHandle);
         }
     }
-    
+
+    /// <inheritdoc />
+    public WindowState WindowState
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            var flags = SDL.GetWindowFlags(NativeHandle);
+            if (flags.HasFlag(SDL.WindowFlags.Minimized))
+                return WindowState.Minimized;
+            if (flags.HasFlag(SDL.WindowFlags.Maximized))
+                return WindowState.Maximized;
+            
+            return WindowState.Normal;
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            switch (value)
+            {
+                case WindowState.Normal:
+                    if (!SDL.RestoreWindow(NativeHandle))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                case WindowState.Minimized:
+                    if (!SDL.MinimizeWindow(NativeHandle))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                case WindowState.Maximized:
+                    if (!SDL.MaximizeWindow(NativeHandle))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(value), value, null);
+            }
+
+            SDL.SyncWindow(NativeHandle);
+        }
+    }
+
+    /// <inheritdoc />
+    public bool Resizable
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            var flags = SDL.GetWindowFlags(NativeHandle);
+            return flags.HasFlag(SDL.WindowFlags.Resizable);
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowResizable(NativeHandle, value))
+                throw new NativeWindowException(SDL.GetError());
+        }
+    }
+
+    /// <inheritdoc />
+    public bool Focused { get; private set; }
+
+    /// <inheritdoc />
+    public Point Position
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowPosition(NativeHandle, out var x, out var y)
+                ? new Point(x, y)
+                : throw new NativeWindowException(SDL.GetError());
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowPosition(NativeHandle, value.X, value.Y))
+                throw new NativeWindowException(SDL.GetError());
+            SDL.SyncWindow(NativeHandle);
+        }
+    }
+
+    /// <inheritdoc />
+    public Size Size
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowSize(NativeHandle, out var w, out var h)
+                ? new Size(w, h)
+                : throw new NativeWindowException(SDL.GetError());
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowSize(NativeHandle, value.Width, value.Height))
+                throw new NativeWindowException(SDL.GetError());
+            SDL.SyncWindow(NativeHandle);
+        }
+    }
+
+    /// <inheritdoc />
+    public Size PixelSize
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowSizeInPixels(NativeHandle, out var w, out var h)
+                ? new Size(w, h)
+                : throw new NativeWindowException(SDL.GetError());
+        }
+    }
+
+    /// <inheritdoc />
+    public Size MinimumSize
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowMinimumSize(NativeHandle, out var w, out var h)
+                ? new Size(w, h)
+                : throw new NativeWindowException(SDL.GetError());
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowMinimumSize(NativeHandle, value.Width, value.Height))
+                throw new NativeWindowException(SDL.GetError());
+        }
+    }
+
+    /// <inheritdoc />
+    public Size MaximumSize
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowMaximumSize(NativeHandle, out var w, out var h)
+                ? new Size(w, h)
+                : throw new NativeWindowException(SDL.GetError());
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowMaximumSize(NativeHandle, value.Width, value.Height))
+                throw new NativeWindowException(SDL.GetError());
+        }    
+    }
+
+    /// <inheritdoc />
+    public FullscreenMode FullscreenMode
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+
+            var dm = SDL.GetWindowFullscreenMode(NativeHandle);
+            if (dm != null)
+                return FullscreenMode.Exclusive;
+
+            var flags = SDL.GetWindowFlags(NativeHandle);
+            return flags.HasFlag(SDL.WindowFlags.Fullscreen) 
+                ? FullscreenMode.Desktop 
+                : FullscreenMode.Windowed;
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+
+            if (value == FullscreenMode)
+                return;
+
+            switch (value)
+            {
+                case FullscreenMode.Windowed:
+                    if (!SDL.SetWindowFullscreen(NativeHandle, false))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                case FullscreenMode.Desktop:
+                    if (!SDL.SetWindowFullscreenMode(NativeHandle, IntPtr.Zero))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                case FullscreenMode.Exclusive:
+                    // Moving into fullscreen without actually specifying a video mode
+                    // is essentially just a best guess of what the user wants to do.
+                    // Try and keep the current resolution but use the desktop refresh rate.
+                    var sz = Size;
+                    var r = CurrentDisplay.NativeVideoMode.RefreshRate;
+                    var success = SDL.GetClosestFullscreenDisplayMode((uint)CurrentDisplay.NativeHandle, sz.Width, sz.Height,
+                        r, true, out var dm);
+                    if (!success || !SDL.SetWindowFullscreenMode(NativeHandle, dm))
+                        throw new NativeWindowException(SDL.GetError());
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(value), value, null);
+            }
+
+            SDL.SyncWindow(NativeHandle);
+        }
+    }
+
+    /// <inheritdoc />
+    public float ContentScale
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowDisplayScale(NativeHandle);
+        }
+    }
+
+    /// <inheritdoc />
+    public IDisplay CurrentDisplay
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            return new SdlDisplay(SDL.GetDisplayForWindow(NativeHandle));
+        }
+        set
+        {
+            ThrowIfNativeHandleInvalid();
+            var d = (SdlDisplay)value;
+
+            if (FullscreenMode == FullscreenMode.Exclusive)
+            {
+                var dm = SDL.GetCurrentDisplayMode(d.DisplayIndex);
+                if (!dm.HasValue)
+                    throw new NativeWindowException(SDL.GetError());
+
+                if (!SDL.SetWindowFullscreenMode(NativeHandle, dm.Value))
+                    throw new NativeWindowException(SDL.GetError());
+                
+                SDL.SyncWindow(NativeHandle);
+            }
+            else
+            {
+                // Just centre it.
+                SDL.SetWindowPosition(NativeHandle, 
+                    (int)SDL.WindowPosCenteredDisplay((int)d.DisplayIndex),
+                    (int)SDL.WindowPosCenteredDisplay((int)d.DisplayIndex)
+                );
+            }
+        }
+    }
+
+    /// <inheritdoc />
+    public IDisplay PrimaryDisplay
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+            var d = SDL.GetPrimaryDisplay();
+            if (d == 0)
+                throw new NativeWindowException(SDL.GetError());
+
+            return new SdlDisplay(d);
+        }
+    }
+
+    /// <inheritdoc />
+    public IEnumerable<IDisplay> Displays
+    {
+        get
+        {
+            ThrowIfNativeHandleInvalid();
+
+            var displays = SDL.GetDisplays(out _);
+            if (displays == null)
+                throw new NativeWindowException(SDL.GetError());
+
+            foreach (var d in displays)
+                yield return new SdlDisplay(d);
+        }
+    }
+
     /// <inheritdoc/>
     public event WindowLoadDelegate? Loaded;
     
@@ -65,18 +338,35 @@ public class Sdl3Window : IWindow
     /// <inheritdoc/>
     public event WindowClosingDelegate? Closing;
 
+    /// <inheritdoc />
+    public event WindowMovedDelegate? Moved;
+
+    /// <inheritdoc />
+    public event WindowResizedDelegate? Resized;
+
+    /// <inheritdoc />
+    public event WindowPixelSizeChangedDelegate? PixelSizeChanged;
+
+    /// <inheritdoc />
+    public event WindowFocusChangedDelegate? GainedFocus;
+
+    /// <inheritdoc />
+    public event WindowFocusChangedDelegate? LostFocus;
+
+    /// <inheritdoc />
+    public event WindowDisplayChangedDelegate? DisplayChanged;
+
+    /// <inheritdoc />
+    public event DisplaysChangedDelegate? DisplayAdded;
+
+    /// <inheritdoc />
+    public event DisplaysChangedDelegate? DisplayRemoved;
+
     /// <summary>
     /// Event invoked for every <see cref="SDL.Event"/> being processed in the main loop.
     /// Note that is callback is invoked AFTER all window-internal event processing has occurred.
     /// </summary>
     public event EventHandlerDelegate? EventProcess;
-
-    /// <inheritdoc/>
-    public IInputContext CreateInput()
-    {
-        ThrowIfNativeHandleInvalid();
-        return new Sdl3InputContext(this);
-    }
 
     private readonly WindowInitParameters _initParameters;
     private bool _closeRequested;
@@ -92,8 +382,63 @@ public class Sdl3Window : IWindow
 
     /// <inheritdoc />
     public void Close(bool force = false) => ProcessQuitEvent(force);
+    
+    #region Video Modes
+
+    /// <inheritdoc />
+    public bool MoveToDisplay(IDisplay display, FullscreenMode mode, VideoMode videoMode)
+    {
+        ThrowIfNativeHandleInvalid();
+
+        var d = (SdlDisplay)display;
+        
+        switch (mode)
+        {
+            case FullscreenMode.Windowed:
+                if (!SDL.SetWindowFullscreen(NativeHandle, false))
+                    return false;
+                if (!SDL.SetWindowPosition(NativeHandle,
+                        (int)SDL.WindowPosCenteredDisplay((int)d.DisplayIndex),
+                        (int)SDL.WindowPosCenteredDisplay((int)d.DisplayIndex)
+                    )) return false;
+                if (!SDL.SetWindowSize(NativeHandle, videoMode.Resolution.Width, videoMode.Resolution.Height))
+                    return false;
+                break;
+            
+            case FullscreenMode.Desktop:
+                if (!SDL.SetWindowFullscreenMode(NativeHandle, IntPtr.Zero))
+                    return false;
+                if (!SDL.SetWindowPosition(NativeHandle,
+                        (int)SDL.WindowPosUndefinedDisplay((int)d.DisplayIndex),
+                        (int)SDL.WindowPosUndefinedDisplay((int)d.DisplayIndex)
+                    )) return false;
+                break;
+            
+            case FullscreenMode.Exclusive:
+                if (!SDL.GetClosestFullscreenDisplayMode(d.DisplayIndex, videoMode.Resolution.Width,
+                        videoMode.Resolution.Height, videoMode.RefreshRate, true, out var dm))
+                    return false;
+                SDL.SetWindowFullscreenMode(NativeHandle, dm);
+                break;
+            
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mode), mode, null);
+        }
+
+        SDL.SyncWindow(NativeHandle);
+        return true;
+    }
+    
+    #endregion
 
     #region Initialisation
+    
+    /// <inheritdoc/>
+    public IInputContext CreateInput()
+    {
+        ThrowIfNativeHandleInvalid();
+        return new Sdl3InputContext(this);
+    }
 
     static Sdl3Window()
     {
@@ -179,10 +524,43 @@ public class Sdl3Window : IWindow
         {
             switch ((SDL.EventType)@event.Type)
             {
+                // Process should quit
                 case SDL.EventType.Quit:
                     ProcessQuitEvent(false);
                     break;
+                
+                // Display add/removed
+                case SDL.EventType.DisplayAdded:
+                    DisplayAdded?.Invoke(new SdlDisplay(@event.Display.DisplayID));
+                    break;
+                case SDL.EventType.DisplayRemoved:
+                    DisplayRemoved?.Invoke(new SdlDisplay(@event.Display.DisplayID));
+                    break;
+                
+                case SDL.EventType.WindowMoved:
+                    Moved?.Invoke();
+                    break;
+                case SDL.EventType.WindowResized:
+                    Resized?.Invoke();
+                    break;
+                case SDL.EventType.WindowPixelSizeChanged:
+                    PixelSizeChanged?.Invoke();
+                    break;
+                case SDL.EventType.WindowDisplayChanged:
+                    DisplayChanged?.Invoke();
+                    break;
+                
+                // Focus events
+                case SDL.EventType.WindowFocusGained:
+                    Focused = true;
+                    GainedFocus?.Invoke();
+                    break;
+                case SDL.EventType.WindowFocusLost:
+                    Focused = false;
+                    LostFocus?.Invoke();
+                    break;
             }
+            
             EventProcess?.Invoke(in @event);
         }
     }
@@ -205,6 +583,8 @@ public class Sdl3Window : IWindow
     
     #endregion
 
+    #region Shutdown/Cleanup
+    
     /// <summary>
     /// Destructor for the class. Only here in case you forget to call <see cref="Dispose"/>.
     /// </summary>
@@ -222,9 +602,15 @@ public class Sdl3Window : IWindow
         }
     }
     
-    private void ThrowIfNativeHandleInvalid()
+    #endregion
+    
+    #region Utility Methods
+    
+    internal void ThrowIfNativeHandleInvalid()
     {
         if (NativeHandle == IntPtr.Zero)
             throw new NativeWindowException("Window is not yet initialized or has been disposed");
     }
+    
+    #endregion
 }

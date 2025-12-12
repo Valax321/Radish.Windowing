@@ -56,6 +56,12 @@ public interface IInputContext : IDisposable
     public IMouse? PrimaryMouse { get; }
     
     /// <summary>
+    /// When enabled, the mouse is hidden and confined to the window.
+    /// Useful for first-person type camera controls.
+    /// </summary>
+    public bool RelativeMouseMode { get; set; }
+    
+    /// <summary>
     /// Set after <see cref="BeginTextInput"/> is called, cleared when <see cref="EndTextInput"/> is called.
     /// </summary>
     public bool TextInputActive { get; }

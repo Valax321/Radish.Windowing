@@ -40,6 +40,22 @@ public class Sdl3InputContext : IInputContext
     public IMouse? PrimaryMouse => _mice.GetValueOrDefault(0u);
 
     /// <inheritdoc />
+    public bool RelativeMouseMode
+    {
+        get
+        {
+            _owner.ThrowIfNativeHandleInvalid();
+            return SDL.GetWindowRelativeMouseMode(_owner.NativeHandle);
+        }
+        set
+        {
+            _owner.ThrowIfNativeHandleInvalid();
+            if (!SDL.SetWindowRelativeMouseMode(_owner.NativeHandle, value))
+                throw new NativeWindowException(SDL.GetError());
+        }
+    }
+
+    /// <inheritdoc />
     public bool TextInputActive => SDL.TextInputActive(_owner.NativeHandle);
 
     #endregion
@@ -143,6 +159,9 @@ public class Sdl3InputContext : IInputContext
             case SDL.EventType.GamepadTouchpadMotion:
                 HandleGamepadTouchEvent(in @event);
                 break;
+            case SDL.EventType.GamepadRemapped:
+                HandleRemappedEvent(in @event);
+                break;
             
             // mouse input
             case SDL.EventType.MouseButtonDown:
@@ -156,8 +175,13 @@ public class Sdl3InputContext : IInputContext
                 HandleMouseWheelEvent(in @event);
                 break;
             
-            case SDL.EventType.GamepadRemapped:
-                HandleRemappedEvent(in @event);
+            case SDL.EventType.FingerDown:
+                break;
+            case SDL.EventType.FingerUp:
+                break;
+            case SDL.EventType.FingerMotion:
+                break;
+            case SDL.EventType.FingerCanceled:
                 break;
         }
     }
@@ -269,6 +293,8 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseConnectionEvent(in SDL.Event @event)
     {
         var gpId = @event.MDevice.Which;
+        if (gpId == SDL.TouchMouseID)
+            return;
         
         if (@event.MDevice.Type == SDL.EventType.MouseAdded)
         {
@@ -295,6 +321,8 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseButtonEvent(in SDL.Event @event)
     {
         var gpId = @event.Button.Which;
+        if (gpId == SDL.TouchMouseID)
+            return;
         
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
@@ -309,6 +337,8 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseMotionEvent(in SDL.Event @event)
     {
         var gpId = @event.Motion.Which;
+        if (gpId == SDL.TouchMouseID)
+            return;
         
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
@@ -323,6 +353,8 @@ public class Sdl3InputContext : IInputContext
     private void HandleMouseWheelEvent(in SDL.Event @event)
     {
         var gpId = @event.Wheel.Which;
+        if (gpId == SDL.TouchMouseID)
+            return;
         
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
