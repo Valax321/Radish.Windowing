@@ -33,6 +33,7 @@ public class Application : IDisposable
             Title = "SDL3 Windowing Example",
             Resizable = true,
             MinimumSize = new Size(640, 480),
+            Hidden = true,
             // ReSharper disable once HeapView.BoxingAllocation
             BackendParameters = new Sdl3BackendWindowParameters
             {
@@ -69,6 +70,8 @@ public class Application : IDisposable
         _graphicsDevice = SDL.CreateRenderer(_window.NativeHandle, null);
         if (_graphicsDevice == IntPtr.Zero)
             throw new NativeWindowException(SDL.GetError());
+
+        _window.IsVisible = true;
     }
 
     private void OnTextInput(ReadOnlySpan<char> text)
@@ -289,6 +292,8 @@ public class Application : IDisposable
     {
     }
 
+    private bool _isAltHeld;
+
     private void KbButtonUp(Keys key, Scancodes scancode, bool isDown)
     {
         if (key == Keys.Grave && isDown && !_input!.TextInputActive)
@@ -306,6 +311,18 @@ public class Application : IDisposable
         {
             if (_textInputBuffer.Length > 0)
                 _textInputBuffer.Remove(_textInputBuffer.Length - 1, 1);
+        }
+        
+        if (key is Keys.LAlt or Keys.RAlt)
+        {
+            _isAltHeld = isDown;
+        }
+
+        if (key == Keys.Return && isDown && _isAltHeld)
+        {
+            Console.WriteLine("Toggling fullscreen mode");
+            var isFullscreen = _window.FullscreenMode != FullscreenMode.Windowed;
+            _window.FullscreenMode = isFullscreen ? FullscreenMode.Windowed : FullscreenMode.Desktop;
         }
     }
 
