@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
+using System.Runtime.InteropServices;
 using System.Text;
 using ColorHelper;
 using Radish.Windowing.InputDevices;
@@ -99,7 +100,7 @@ public class Application : IDisposable
         
         // Draw a square to visualise relative mouse movement
         var c = ColorConverter.HsvToRgb(new HSV(
-            (byte)(_hue % 255),
+            (int)_hue,
             100, 100)
         );
         SDL.SetRenderDrawColor(_graphicsDevice, c.R, c.G, c.B, (byte)SDL.AlphaOpaque);
@@ -116,6 +117,8 @@ public class Application : IDisposable
         var dp = new Point(12, 12);
         
         PrintSomeTextPlease("Radish.Windowing Debugger Program for SDL3");
+        PrintSomeTextPlease($"Runtime: {RuntimeInformation.FrameworkDescription}");
+        PrintSomeTextPlease($"OS: {RuntimeInformation.OSDescription}");
         PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
         
         dp.Y += 12;
