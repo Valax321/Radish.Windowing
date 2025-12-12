@@ -190,10 +190,10 @@ public class Application : IDisposable
         var sb = new StringBuilder();
         foreach (var k in Enum.GetValues<GamepadButtons>())
         {
-            if (k == GamepadButtons.None)
+            if (k == GamepadButtons.None || !gamepad.IsPressed(k))
                 continue;
 
-            sb.Append(gamepad.IsPressed(k) ? '1' : '0');
+            sb.Append($"{k} ");
         }
         
         foreach (var a in Enum.GetValues<GamepadAxes>())
@@ -212,10 +212,10 @@ public class Application : IDisposable
         var sb = new StringBuilder();
         foreach (var k in Enum.GetValues<Scancodes>())
         {
-            if (k == Scancodes.None)
+            if (k == Scancodes.None || !keyboard.IsPressed(k))
                 continue;
 
-            sb.Append(keyboard.IsPressed(k) ? '1' : '0');
+            sb.Append($"{k} ");
         }
         return sb.ToString();
     }
@@ -225,10 +225,10 @@ public class Application : IDisposable
         var sb = new StringBuilder();
         foreach (var k in Enum.GetValues<MouseButtons>())
         {
-            if (k == MouseButtons.None)
+            if (k == MouseButtons.None || !mouse.IsPressed(k))
                 continue;
 
-            sb.Append(mouse.IsPressed(k) ? '1' : '0');
+            sb.Append($"{k} ");
         }
 
         sb.Append($" {mouse.Position:F1}");
