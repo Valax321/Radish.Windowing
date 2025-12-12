@@ -24,6 +24,8 @@ public class Application : IDisposable
         {
             Size = new Size(1280, 720),
             Title = "SDL3 Windowing Example",
+            Resizable = true,
+            MinimumSize = new Size(640, 480),
             // ReSharper disable once HeapView.BoxingAllocation
             BackendParameters = new Sdl3BackendWindowParameters
             {
@@ -60,9 +62,6 @@ public class Application : IDisposable
         _graphicsDevice = SDL.CreateRenderer(_window.NativeHandle, null);
         if (_graphicsDevice == IntPtr.Zero)
             throw new NativeWindowException(SDL.GetError());
-
-        SDL.SetRenderLogicalPresentation(_graphicsDevice, 1280, 720, 
-            SDL.RendererLogicalPresentation.IntegerScale);
     }
 
     private void OnTextInput(ReadOnlySpan<char> text)
@@ -79,19 +78,26 @@ public class Application : IDisposable
 
     private void OnWindowRender(TimeSpan deltaTime)
     {
+        var s = _window.ContentScale;
+        SDL.SetRenderScale(_graphicsDevice, s, s);
+        
         SDL.SetRenderDrawColor(_graphicsDevice, 
-            Color.CornflowerBlue.R, Color.CornflowerBlue.G, 
-            Color.CornflowerBlue.B, Color.CornflowerBlue.A);
+            Color.DarkSlateGray.R, Color.DarkSlateGray.G, 
+            Color.DarkSlateGray.B, Color.DarkSlateGray.A);
         SDL.RenderClear(_graphicsDevice);
 
         SDL.SetRenderDrawColor(_graphicsDevice, 255, 255, 255, (byte)SDL.AlphaOpaque);
 
         var dp = new Point(12, 12);
         
+        PrintSomeTextPlease("Radish.Windowing Debugger Program for SDL3");
         PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
-        dp.Y += 12;
         
-        PrintSomeTextPlease($"Devices: {_input!.InputDevices.Count}");
+        dp.Y += 12;
+        PrintSomeTextPlease("-----------------------------------------------");
+        
+        dp.Y += 12;
+        PrintSomeTextPlease($"Input Devices: {_input!.InputDevices.Count}");
         foreach (var device in _input.InputDevices)
         {
             PrintSomeTextPlease($"  Device: {device} ({device.GetType().Name}), DeviceId: {device.NativeHandle}");
@@ -110,6 +116,9 @@ public class Application : IDisposable
         
         dp.Y += 12;
         PrintSomeTextPlease($"Text Input Buffer (Editing: {_input.TextInputActive}): {_textInputBuffer}|");
+        PrintSomeTextPlease("Press ~ to begin editing...");
+        
+        dp.Y += 12;
         PrintSomeTextPlease($"Keyboards: {_input.Keyboards.Count}");
         foreach (var kb in _input.Keyboards)
         {
@@ -121,6 +130,21 @@ public class Application : IDisposable
         foreach (var m in _input.Mice)
         {
             PrintSomeTextPlease($"  {m}: {MakeBitStringFromMouseStates(m)}");
+        }
+        
+        dp.Y += 12;
+        PrintSomeTextPlease("-----------------------------------------------");
+        
+        dp.Y += 12;
+        var dps = _window.Displays.ToArray();
+        PrintSomeTextPlease($"Window Pos: {_window.Position}, Size: {_window.Size}, PixelSize: {_window.PixelSize}, Mode: {_window.FullscreenMode}, Focused: {_window.Focused}, Scale: {_window.ContentScale}");
+        PrintSomeTextPlease($"Displays: {dps.Length}");
+        var cd = _window.CurrentDisplay;
+        foreach (var d in dps)
+        {
+            var v = d.CurrentVideoMode;
+            PrintSomeTextPlease($"  {d} {(d.Equals(cd) ? "(Current)" : string.Empty)}: {v.Resolution} @ {v.RefreshRate:F2}Hz, HDR: {d.SupportsHDR}, Content Scale: {d.ContentScale}");
+            PrintSomeTextPlease($"    Supports {d.FullscreenVideoModes.Count()} video modes");
         }
         
         SDL.RenderPresent(_graphicsDevice);
