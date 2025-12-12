@@ -143,7 +143,7 @@ public class Application : IDisposable
         }
         
         dp.Y += 12;
-        PrintSomeTextPlease($"Text Input Buffer (Editing: {_input.TextInputActive}): {_textInputBuffer}|");
+        PrintSomeTextPlease($"Text Input Buffer: {_textInputBuffer}{(_input.TextInputActive ? "_" : string.Empty)}");
         PrintSomeTextPlease("Press ~ to begin editing...");
         
         dp.Y += 12;
