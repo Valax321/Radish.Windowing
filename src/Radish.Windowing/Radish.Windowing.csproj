@@ -8,6 +8,8 @@
         <Authors>Audrey Castillo</Authors>
         <Description>Core library for Radish windowing systems.</Description>
         <IsAotCompatible>true</IsAotCompatible>
+        <Copyright>Copyright (c) Audrey Castillo</Copyright>
+        <Product>Radish.Windowing</Product>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -19,6 +21,10 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="GitVersion.MsBuild" Version="6.5.1">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="JetBrains.Annotations" Version="2025.2.4"/>
     </ItemGroup>
 
