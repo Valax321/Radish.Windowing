@@ -368,6 +368,9 @@ public class Sdl3Window : IWindow
     /// </summary>
     public event EventHandlerDelegate? EventProcess;
 
+    internal event Action? PreEventProcess;
+    internal event Action? PostEventProcess;
+
     private readonly WindowInitParameters _initParameters;
     private bool _closeRequested;
     
@@ -520,6 +523,7 @@ public class Sdl3Window : IWindow
 
     private void PollEvents()
     {
+        PreEventProcess?.Invoke();
         while (SDL.PollEvent(out var @event))
         {
             switch ((SDL.EventType)@event.Type)
@@ -563,6 +567,7 @@ public class Sdl3Window : IWindow
             
             EventProcess?.Invoke(in @event);
         }
+        PostEventProcess?.Invoke();
     }
 
     private void ProcessQuitEvent(bool skipEventCallback)

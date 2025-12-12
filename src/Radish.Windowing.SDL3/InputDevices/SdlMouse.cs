@@ -64,18 +64,29 @@ internal sealed class SdlMouse : SdlBaseInputDevice, IMouse
     public void ProcessMotionEvent(in SDL.MouseMotionEvent @event)
     {
         Position = new Vector2(@event.X, @event.Y);
-        PositionDelta = new Vector2(@event.XRel, @event.YRel);
     }
 
     public void ProcessWheelEvent(in SDL.MouseWheelEvent @event)
     {
-        WheelAxes = new Vector2(@event.X, @event.Y);
+        WheelAxes += new Vector2(@event.X, @event.Y);
     }
 
     public void ClearEvents()
     {
         ButtonDown = null;
         ButtonUp = null;
+    }
+
+    public void ClearWheel()
+    {
+        WheelAxes = Vector2.Zero;
+    }
+
+    public void SampleDelta()
+    {
+        // There's no 'motion stop' or 'wheel stop' events, so we have to set these manually.
+        SDL.GetRelativeMouseState(out var dx, out var dy);
+        PositionDelta = new Vector2(dx, dy);
     }
 
     public override string ToString()

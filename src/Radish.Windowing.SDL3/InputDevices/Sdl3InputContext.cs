@@ -78,10 +78,12 @@ public class Sdl3InputContext : IInputContext
     {
         _owner = owner;
         _owner.EventProcess += OnEvent;
+        _owner.PreEventProcess += ClearStaleMouseData;
+        _owner.PostEventProcess += UpdateMouseDelta;
         
         HandleBuggedInitialEventReporting();
     }
-    
+
     #endregion
     
     #region SDL Event Handling
@@ -184,6 +186,18 @@ public class Sdl3InputContext : IInputContext
             case SDL.EventType.FingerCanceled:
                 break;
         }
+    }
+    
+    private void ClearStaleMouseData()
+    {
+        foreach (var (_, m) in _mice)
+            m.ClearWheel();
+    }
+    
+    private void UpdateMouseDelta()
+    {
+        foreach (var (_, m) in _mice)
+            m.SampleDelta();
     }
 
     private void HandleKeyboardKeyEvent(in SDL.Event @event)
@@ -498,6 +512,8 @@ public class Sdl3InputContext : IInputContext
     {
         GC.SuppressFinalize(this);
         _owner.EventProcess -= OnEvent;
+        _owner.PreEventProcess -= ClearStaleMouseData;
+        _owner.PostEventProcess -= UpdateMouseDelta;
         
         // Clear em all out
         _devices.Clear();
