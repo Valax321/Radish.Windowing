@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.Numerics;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using ColorHelper;
@@ -90,7 +91,10 @@ public class Application : IDisposable
 
     private void OnWindowRender(TimeSpan deltaTime)
     {
-        var s = _window.ContentScale;
+        var s = MathF.Floor(_window.ContentScale);
+        if (s < 1)
+            s = 1;
+        
         SDL.SetRenderScale(_graphicsDevice, s, s);
         
         SDL.SetRenderDrawColor(_graphicsDevice, 
@@ -115,10 +119,11 @@ public class Application : IDisposable
         SDL.SetRenderDrawColor(_graphicsDevice, 255, 255, 255, (byte)SDL.AlphaOpaque);
 
         var dp = new Point(12, 12);
-        
-        PrintSomeTextPlease("Radish.Windowing Debugger Program for SDL3");
-        PrintSomeTextPlease($"Runtime: {RuntimeInformation.FrameworkDescription}");
+
+        var n = Assembly.GetExecutingAssembly().GetCustomAttribute<AssemblyInformationalVersionAttribute>();
+        PrintSomeTextPlease($"Radish.Windowing SDL3 Example {n?.InformationalVersion}");
         PrintSomeTextPlease($"OS: {RuntimeInformation.OSDescription}");
+        PrintSomeTextPlease($"Runtime: {RuntimeInformation.FrameworkDescription}");
         PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
         
         dp.Y += 12;
