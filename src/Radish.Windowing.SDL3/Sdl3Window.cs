@@ -226,7 +226,7 @@ public class Sdl3Window : IWindow
                         throw new NativeWindowException(SDL.GetError());
                     break;
                 case FullscreenMode.Desktop:
-                    if (!SDL.SetWindowFullscreenMode(NativeHandle, IntPtr.Zero))
+                    if (!SDL.SetWindowFullscreen(NativeHandle, true))
                         throw new NativeWindowException(SDL.GetError());
                     break;
                 case FullscreenMode.Exclusive:
@@ -409,7 +409,7 @@ public class Sdl3Window : IWindow
                 break;
             
             case FullscreenMode.Desktop:
-                if (!SDL.SetWindowFullscreenMode(NativeHandle, IntPtr.Zero))
+                if (!SDL.SetWindowFullscreen(NativeHandle, true))
                     return false;
                 if (!SDL.SetWindowPosition(NativeHandle,
                         (int)SDL.WindowPosUndefinedDisplay((int)d.DisplayIndex),
