@@ -1,9 +1,12 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
+using System.Numerics;
 using System.Text;
+using ColorHelper;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3;
 using SDL3;
+using ColorConverter = ColorHelper.ColorConverter;
 
 namespace Radish.Windowing.Examples;
 
@@ -16,6 +19,8 @@ public class Application : IDisposable
     private IInputContext? _input;
     private IntPtr _graphicsDevice = IntPtr.Zero;
     private readonly StringBuilder _textInputBuffer = new();
+    private Vector2 _squarePos = new(1280 / 2f, 720 / 2f);
+    private float _hue;
     
     public Application()
     {
@@ -74,6 +79,12 @@ public class Application : IDisposable
         var kb = _input!.Keyboards.FirstOrDefault();
         if (kb != null && kb.IsPressed(kb.KeycodeToScancode(Keys.Escape)))
             _window.Close();
+
+        if (_input.PrimaryMouse != null)
+        {
+            _squarePos += _input.PrimaryMouse.PositionDelta;
+            _hue += _input.PrimaryMouse.WheelAxes.Y;
+        }
     }
 
     private void OnWindowRender(TimeSpan deltaTime)
@@ -85,6 +96,20 @@ public class Application : IDisposable
             Color.DarkSlateGray.R, Color.DarkSlateGray.G, 
             Color.DarkSlateGray.B, Color.DarkSlateGray.A);
         SDL.RenderClear(_graphicsDevice);
+        
+        // Draw a square to visualise relative mouse movement
+        var c = ColorConverter.HsvToRgb(new HSV(
+            (byte)(_hue % 255),
+            100, 100)
+        );
+        SDL.SetRenderDrawColor(_graphicsDevice, c.R, c.G, c.B, (byte)SDL.AlphaOpaque);
+        SDL.RenderFillRect(_graphicsDevice, new SDL.FRect
+        {
+            X = _squarePos.X + 8,
+            Y = _squarePos.Y + 8,
+            W = 16,
+            H = 16
+        });
 
         SDL.SetRenderDrawColor(_graphicsDevice, 255, 255, 255, (byte)SDL.AlphaOpaque);
 
@@ -203,9 +228,9 @@ public class Application : IDisposable
             sb.Append(mouse.IsPressed(k) ? '1' : '0');
         }
 
-        sb.Append($" {mouse.Position}");
-        sb.Append($" {mouse.PositionDelta}");
-        sb.Append($" {mouse.WheelAxes}");
+        sb.Append($" {mouse.Position:F1}");
+        sb.Append($" {mouse.PositionDelta:F4}");
+        sb.Append($" {mouse.WheelAxes:F2}");
         
         return sb.ToString();
     }
