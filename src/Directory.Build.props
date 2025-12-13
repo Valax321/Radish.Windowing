@@ -1,0 +1,25 @@
+<Project>
+    <PropertyGroup>
+        <Authors>Audrey Castillo</Authors>
+        <Copyright>Copyright (c) Audrey Castillo</Copyright>
+        <Product>Radish.Windowing</Product>
+        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+        <IncludeSymbols>true</IncludeSymbols>
+        <RepositoryUrl>https://github.com/Valax321/Radish.Windowing</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/Valax321/Radish.Windowing</PackageProjectUrl>
+        <IsAotCompatible>true</IsAotCompatible>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="..\..\README.md" Pack="true" PackagePath=""/>
+        <None Include="..\..\LICENSE" Pack="true" PackagePath=""/>
+    </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="GitVersion.MsBuild" Version="6.5.1">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+</Project>

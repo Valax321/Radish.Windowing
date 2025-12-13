@@ -1,16 +1,13 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <PackageId>Radish.Windowing.SDL3</PackageId>
         <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
         <Title>Radish Windowing - SDL3 Backend</Title>
-        <Authors>Audrey Castillo</Authors>
         <Description>SDL3 backend for Radish.Windowing</Description>
-        <IsAotCompatible>true</IsAotCompatible>
-        <Copyright>Copyright (c) Audrey Castillo</Copyright>
-        <Product>Radish.Windowing</Product>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -26,10 +23,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="GitVersion.MsBuild" Version="6.5.1">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
         <PackageReference Include="SDL3-CS" Version="3.3.2.1"/>
     </ItemGroup>
 
