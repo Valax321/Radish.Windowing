@@ -71,6 +71,9 @@ public class Application : IDisposable
         if (_graphicsDevice == IntPtr.Zero)
             throw new NativeWindowException(SDL.GetError());
 
+        // Enable vsync
+        SDL.SetRenderVSync(_graphicsDevice, 1);
+
         _window.IsVisible = true;
     }
 
@@ -128,6 +131,7 @@ public class Application : IDisposable
         PrintSomeTextPlease($"OS: {RuntimeInformation.OSDescription}");
         PrintSomeTextPlease($"Runtime: {RuntimeInformation.FrameworkDescription}");
         PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
+        PrintSomeTextPlease($"Frame time: {deltaTime.TotalMilliseconds:F2}ms");
         
         dp.Y += 12;
         PrintSomeTextPlease("-----------------------------------------------");

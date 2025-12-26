@@ -373,6 +373,7 @@ public class Sdl3Window : IWindow
 
     private readonly WindowInitParameters _initParameters;
     private bool _closeRequested;
+    private ulong _lastUpdateTicks;
     
     /// <inheritdoc/>
     public void Run()
@@ -513,12 +514,28 @@ public class Sdl3Window : IWindow
 
     private void RunMainLoop()
     {
+        _lastUpdateTicks = SDL.GetPerformanceCounter();
+        
         while (!_closeRequested)
         {
             PollEvents();
-            Update?.Invoke(TimeSpan.Zero);
-            Render?.Invoke(TimeSpan.Zero);
+
+            var deltaTime = CalculateElapsedTime();
+            
+            // Unlike Silk.NET, we leave it up to the user to implement a fixed time step if they want one.
+            Update?.Invoke(deltaTime);
+            Render?.Invoke(deltaTime);
         }
+    }
+
+    private TimeSpan CalculateElapsedTime()
+    {
+        var t = SDL.GetPerformanceCounter();
+        var tDiff = t - _lastUpdateTicks;
+        _lastUpdateTicks = t;
+
+        var diffSeconds = tDiff / (double)SDL.GetPerformanceFrequency();
+        return TimeSpan.FromSeconds(diffSeconds);
     }
 
     private void PollEvents()
