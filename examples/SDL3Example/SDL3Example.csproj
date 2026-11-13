@@ -22,10 +22,6 @@
 
     <ItemGroup>
         <PackageReference Include="ColorHelper" Version="1.8.1"/>
-        <PackageReference Include="GitVersion.MsBuild" Version="6.5.1">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
     </ItemGroup>
 
 </Project>
