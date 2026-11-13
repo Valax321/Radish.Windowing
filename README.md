@@ -6,4 +6,4 @@ It uses SDL3 as its main (and currently only) window backend with the [SDL3-CS](
 
 ## License
 
-This project uses the MIT license. See [LICENSE](./LICENSE) for the full text.
+This project uses the zlib license. See [LICENSE](./LICENSE) for the full text. Versions prior to 1.0.0 were licensed under MIT, although that is no longer the case.
