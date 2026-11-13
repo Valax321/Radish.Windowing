@@ -19,11 +19,23 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Radish.Windowing\Radish.Windowing.csproj"/>
+      <Compile Include="..\Thirdparty\SDL3-CS\SDL3\SDL3.Core.cs" Link="SDL3.Core.cs" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="SDL3-CS" Version="3.4.12.2" />
+      <None Include="..\Thirdparty\SDL3-prebuilt\win-x64\SDL3.dll" Link="runtimes/win-x64/native/SDL3.dll" Pack="true" PackagePath="runtimes/win-x64/native/">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Include="..\Thirdparty\SDL3-prebuilt\win-arm64\SDL3.dll" Link="runtimes/win-arm64/native/SDL3.dll" Pack="true" PackagePath="runtimes/win-arm64/native/">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+      <None Include="..\Thirdparty\SDL3-prebuilt\win-x86\SDL3.dll" Link="runtimes/win-x86/native/SDL3.dll" Pack="true" PackagePath="runtimes/win-x86/native/">
+        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      </None>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Radish.Windowing\Radish.Windowing.csproj" />
     </ItemGroup>
 
 </Project>

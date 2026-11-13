@@ -1,12 +1,12 @@
 ﻿using Radish.Windowing;
 using Radish.Windowing.Examples;
 using Radish.Windowing.SDL3;
-using SDL3;
+using static SDL3.SDL;
 
 // These are supposed to be set before SDL_Init (which registering the provider eventually calls into)
-SDL.SetAppMetadata("SDL3 Windowing Example", "1.0.0", "com.radish.sdl3-example");
-SDL.SetAppMetadataProperty(SDL.Props.AppMetadataTypeString, "game");
-SDL.SetAppMetadataProperty(SDL.Props.AppMetadataCreatorString, "Radish Games");
+SDL_SetAppMetadata("SDL3 Windowing Example", "1.0.0", "com.radish.sdl3-example");
+SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_TYPE_STRING, "game");
+SDL_SetAppMetadataProperty(SDL_PROP_APP_METADATA_CREATOR_STRING, "Radish Games");
 
 // Register the window provider (this step is vital or else the library will not know about what windowing backends
 // are available).

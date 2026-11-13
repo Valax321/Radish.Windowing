@@ -2,7 +2,6 @@ using System.Collections;
 using System.Numerics;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3.Utility;
-using SDL3;
 
 namespace Radish.Windowing.SDL3.InputDevices;
 
@@ -35,17 +34,17 @@ internal sealed class SdlMouse : SdlBaseInputDevice, IMouse
         return _buttonStates[ButtonMap[button]];
     }
 
-    public void ProcessButtonEvent(in SDL.MouseButtonEvent @event)
+    public void ProcessButtonEvent(in SDL_MouseButtonEvent @event)
     {
         // Do we know about this button?
-        var f = (SDL.MouseButtonFlags)(1 << @event.Button - 1);
+        var f = (SDL_MouseButtonFlags)(1 << @event.button - 1);
         var btn = f switch
         {
-            SDL.MouseButtonFlags.Left => MouseButtons.Mouse1,
-            SDL.MouseButtonFlags.Middle => MouseButtons.Mouse3,
-            SDL.MouseButtonFlags.Right => MouseButtons.Mouse2,
-            SDL.MouseButtonFlags.X1 => MouseButtons.Mouse4,
-            SDL.MouseButtonFlags.X2 => MouseButtons.Mouse5,
+            SDL_MouseButtonFlags.SDL_BUTTON_LMASK => MouseButtons.Mouse1,
+            SDL_MouseButtonFlags.SDL_BUTTON_MMASK => MouseButtons.Mouse3,
+            SDL_MouseButtonFlags.SDL_BUTTON_RMASK => MouseButtons.Mouse2,
+            SDL_MouseButtonFlags.SDL_BUTTON_X1MASK => MouseButtons.Mouse4,
+            SDL_MouseButtonFlags.SDL_BUTTON_X2MASK => MouseButtons.Mouse5,
             _ => MouseButtons.None
         };
 
@@ -53,22 +52,22 @@ internal sealed class SdlMouse : SdlBaseInputDevice, IMouse
         if (btn == MouseButtons.None)
             return;
 
-        _buttonStates[ButtonMap[btn]] = @event.Down;
+        _buttonStates[ButtonMap[btn]] = @event.down;
         
-        if (@event.Down)
+        if (@event.down)
             ButtonDown?.Invoke(btn, true);
         else
             ButtonUp?.Invoke(btn, false);
     }
 
-    public void ProcessMotionEvent(in SDL.MouseMotionEvent @event)
+    public void ProcessMotionEvent(in SDL_MouseMotionEvent @event)
     {
-        Position = new Vector2(@event.X, @event.Y);
+        Position = new Vector2(@event.x, @event.y);
     }
 
-    public void ProcessWheelEvent(in SDL.MouseWheelEvent @event)
+    public void ProcessWheelEvent(in SDL_MouseWheelEvent @event)
     {
-        WheelAxes += new Vector2(@event.X, @event.Y);
+        WheelAxes += new Vector2(@event.x, @event.y);
     }
 
     public void ClearEvents()
@@ -85,13 +84,13 @@ internal sealed class SdlMouse : SdlBaseInputDevice, IMouse
     public void SampleDelta()
     {
         // There's no 'motion stop' or 'wheel stop' events, so we have to set these manually.
-        SDL.GetRelativeMouseState(out var dx, out var dy);
+        SDL_GetRelativeMouseState(out var dx, out var dy);
         PositionDelta = new Vector2(dx, dy);
     }
 
     public override string ToString()
     {
-        var s = SDL.GetMouseNameForID(InstanceId);
+        var s = SDL_GetMouseNameForID(InstanceId);
         return string.IsNullOrEmpty(s) ? "Unnamed Mouse" : s;
     }
 }

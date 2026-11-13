@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices.Marshalling;
+using System.Security.Cryptography;
 using JetBrains.Annotations;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3.Utility;
@@ -48,18 +50,18 @@ public class Sdl3InputContext : IInputContext
         get
         {
             _owner.ThrowIfNativeHandleInvalid();
-            return SDL.GetWindowRelativeMouseMode(_owner.NativeHandle);
+            return SDL_GetWindowRelativeMouseMode(_owner.NativeHandle);
         }
         set
         {
             _owner.ThrowIfNativeHandleInvalid();
-            if (!SDL.SetWindowRelativeMouseMode(_owner.NativeHandle, value))
-                throw new NativeWindowException(SDL.GetError());
+            if (!SDL_SetWindowRelativeMouseMode(_owner.NativeHandle, value))
+                throw new NativeWindowException(SDL_GetError());
         }
     }
 
     /// <inheritdoc />
-    public bool TextInputActive => SDL.TextInputActive(_owner.NativeHandle);
+    public bool TextInputActive => SDL_TextInputActive(_owner.NativeHandle);
 
     #endregion
 
@@ -91,102 +93,101 @@ public class Sdl3InputContext : IInputContext
     
     #region SDL Event Handling
 
-    private void HandleBuggedInitialEventReporting()
+    private unsafe void HandleBuggedInitialEventReporting()
     {
         // Basically, older SDL versions don't emit MouseAdded
         // events on startup like it does for gamepad events.
         // We can easily work around this by manually posting these events with the default devices,
         // but we have to be sure we're only doing it on the SDL versions with this issue.
-        var v = VersionUtility.ParseSdlVersion(SDL.GetVersion());
+        var v = VersionUtility.ParseSdlVersion(SDL_GetVersion());
         if (v.CompareTo(new Version(3, 3, 0)) >= 0) 
             return;
         
-        var m = SDL.GetMice(out _);
-        if (m != null)
+        var m = (uint*)SDL_GetMice(out var cnt);
+        try
         {
-            foreach (var mid in m)
+            if (m != null)
             {
-                var ev = new SDL.Event
+                for (var i = 0; i < cnt; ++i)
                 {
-                    Type = (uint)SDL.EventType.MouseAdded,
-                    MDevice =
+                    var mid = m[i];
+                    var ev = new SDL_Event
                     {
-                        Which = mid,
-                        Timestamp = SDL.GetTicksNS()
-                    }
-                };
+                        type = (uint)SDL_EventType.SDL_EVENT_MOUSE_ADDED,
+                        mdevice =
+                        {
+                            which = mid,
+                            timestamp = SDL_GetTicksNS()
+                        }
+                    };
 
-                SDL.PushEvent(ref ev);
+                    SDL_PushEvent(ref ev);
+                }
             }
+        }
+        finally
+        {
+            SDL_free((nint)m);
         }
     }
     
-    private unsafe void OnEvent(in SDL.Event @event)
+    private unsafe void OnEvent(in SDL_Event @event)
     {
-        switch ((SDL.EventType)@event.Type)
+        switch ((SDL_EventType)@event.type)
         {
             // Input device add/removed
-            case SDL.EventType.GamepadAdded:
-            case SDL.EventType.GamepadRemoved:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_ADDED:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_REMOVED:
                 HandleGamepadConnectionEvent(in @event);
                 break;
-            case SDL.EventType.KeyboardAdded:
-            case SDL.EventType.KeyboardRemoved:
+            case SDL_EventType.SDL_EVENT_KEYBOARD_ADDED:
+            case SDL_EventType.SDL_EVENT_KEYBOARD_REMOVED:
                 HandleKeyboardConnectionEvent(in @event);
                 break;
-            case SDL.EventType.MouseAdded:
-            case SDL.EventType.MouseRemoved:
+            case SDL_EventType.SDL_EVENT_MOUSE_ADDED:
+            case SDL_EventType.SDL_EVENT_MOUSE_REMOVED:
                 HandleMouseConnectionEvent(in @event);
                 break;
             
             // Text input
-            case SDL.EventType.TextInput:
-                var t = Utf8StringMarshaller.ConvertToManaged((byte*)@event.Text.Text);
+            case SDL_EventType.SDL_EVENT_TEXT_INPUT:
+                var t = Utf8StringMarshaller.ConvertToManaged(@event.text.text);
                 TextInput?.Invoke(t ?? ReadOnlySpan<char>.Empty);
                 break;
             
             // keyboard input
-            case SDL.EventType.KeyDown:
-            case SDL.EventType.KeyUp:
+            case SDL_EventType.SDL_EVENT_KEY_DOWN:
+            case SDL_EventType.SDL_EVENT_KEY_UP:
                 HandleKeyboardKeyEvent(in @event);
                 break;
             
             // gamepad input
-            case SDL.EventType.GamepadButtonDown:
-            case SDL.EventType.GamepadButtonUp:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_BUTTON_DOWN:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_BUTTON_UP:
                 HandleGamepadButtonEvent(in @event); // BUG?? on mac at least this event never occurs
                 break;
-            case SDL.EventType.GamepadAxisMotion:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_AXIS_MOTION:
                 HandleGamepadAxisEvent(in @event);
                 break;
-            case SDL.EventType.GamepadTouchpadDown:
-            case SDL.EventType.GamepadTouchpadUp:
-            case SDL.EventType.GamepadTouchpadMotion:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_TOUCHPAD_DOWN:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_TOUCHPAD_UP:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_TOUCHPAD_MOTION:
                 HandleGamepadTouchEvent(in @event);
                 break;
-            case SDL.EventType.GamepadRemapped:
+            case SDL_EventType.SDL_EVENT_GAMEPAD_REMAPPED:
                 HandleRemappedEvent(in @event);
                 break;
             
             // mouse input
-            case SDL.EventType.MouseButtonDown:
-            case SDL.EventType.MouseButtonUp:
+            case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_DOWN:
+            case SDL_EventType.SDL_EVENT_MOUSE_BUTTON_UP:
                 HandleMouseButtonEvent(in @event);
                 break;
-            case SDL.EventType.MouseMotion:
+            case SDL_EventType.SDL_EVENT_MOUSE_MOTION:
                 HandleMouseMotionEvent(in @event);
                 break;
-            case SDL.EventType.MouseWheel:
+            case SDL_EventType.SDL_EVENT_MOUSE_WHEEL:
                 HandleMouseWheelEvent(in @event);
-                break;
-            
-            case SDL.EventType.FingerDown:
-                break;
-            case SDL.EventType.FingerUp:
-                break;
-            case SDL.EventType.FingerMotion:
-                break;
-            case SDL.EventType.FingerCanceled:
                 break;
         }
     }
@@ -203,9 +204,9 @@ public class Sdl3InputContext : IInputContext
             m.SampleDelta();
     }
 
-    private void HandleKeyboardKeyEvent(in SDL.Event @event)
+    private void HandleKeyboardKeyEvent(in SDL_Event @event)
     {
-        var kbId = @event.Key.Which;
+        var kbId = @event.key.which;
         
         // Keyboards get extra special handling here because random shit can get picked up as a keyboard.
         // Don't actually register it as a keyboard until it sends some kind of input.
@@ -214,14 +215,14 @@ public class Sdl3InputContext : IInputContext
             kb = new SdlKeyboard(kbId);
             AddInputDevice(kb);
         }
-        kb.ProcessKeyEvent(in @event.Key);
+        kb.ProcessKeyEvent(in @event.key);
     }
     
-    private void HandleKeyboardConnectionEvent(in SDL.Event @event)
+    private void HandleKeyboardConnectionEvent(in SDL_Event @event)
     {
-        var kbId = @event.KDevice.Which;
+        var kbId = @event.kdevice.which;
 
-        if (@event.KDevice.Type == SDL.EventType.KeyboardAdded)
+        if (@event.kdevice.type == SDL_EventType.SDL_EVENT_KEYBOARD_ADDED)
         {
             if (kbId != 0)
                 return; // See comment in HandleKeyboardKeyEvent for why this exists.
@@ -229,7 +230,7 @@ public class Sdl3InputContext : IInputContext
             var existingKeyboard = new SdlKeyboard(kbId);
             AddInputDevice(existingKeyboard);
         }
-        else if (@event.KDevice.Type == SDL.EventType.KeyboardRemoved)
+        else if (@event.kdevice.type == SDL_EventType.SDL_EVENT_KEYBOARD_REMOVED)
         {
             if (!_keyboards.TryGetValue(kbId, out var existingKeyboard))
             {
@@ -243,28 +244,28 @@ public class Sdl3InputContext : IInputContext
         }
     }
     
-    private void HandleGamepadConnectionEvent(in SDL.Event @event)
+    private void HandleGamepadConnectionEvent(in SDL_Event @event)
     {
-        var gpId = @event.GDevice.Which;
-        if (@event.GDevice.Type == SDL.EventType.GamepadAdded)
+        var gpId = @event.gdevice.which;
+        if (@event.gdevice.type == SDL_EventType.SDL_EVENT_GAMEPAD_ADDED)
         {
             // Gamepads need to be explicitly opened and closed, unlike other input devices.
-            var ptr = SDL.OpenGamepad(gpId);
+            var ptr = SDL_OpenGamepad(gpId);
             if (ptr != IntPtr.Zero)
             {
-                gpId = SDL.GetGamepadID(ptr);
+                gpId = SDL_GetGamepadID(ptr);
             }
             
             var existingGamepad = new SdlGamepad(gpId);
             AddInputDevice(existingGamepad);
         }
-        else if (@event.GDevice.Type == SDL.EventType.GamepadRemoved)
+        else if (@event.gdevice.type == SDL_EventType.SDL_EVENT_GAMEPAD_REMOVED)
         {
             // Gamepads need to be explicitly opened and closed, unlike other input devices.
-            var ptr = SDL.GetGamepadFromID(gpId);
+            var ptr = SDL_GetGamepadFromID(gpId);
             if (ptr != IntPtr.Zero)
             {
-                SDL.CloseGamepad(ptr);
+                SDL_CloseGamepad(ptr);
             }
             
             if (!_gamepads.TryGetValue(gpId, out var existingGamepad))
@@ -279,55 +280,53 @@ public class Sdl3InputContext : IInputContext
         }
     }
     
-    private void HandleGamepadButtonEvent(in SDL.Event @event)
+    private void HandleGamepadButtonEvent(in SDL_Event @event)
     {
-        var gpId = @event.GButton.Which;
+        var gpId = @event.gbutton.which;
         var gp = _gamepads.GetValueOrDefault(gpId);
-        gp?.ProcessButtonEvent(in @event.GButton);
+        gp?.ProcessButtonEvent(in @event.gbutton);
     }
     
-    private void HandleGamepadAxisEvent(in SDL.Event @event)
+    private void HandleGamepadAxisEvent(in SDL_Event @event)
     {
-        var gpId = @event.GAxis.Which;
+        var gpId = @event.gaxis.which;
         var gp = _gamepads.GetValueOrDefault(gpId);
-        gp?.ProcessAxisEvent(in @event.GAxis);
+        gp?.ProcessAxisEvent(in @event.gaxis);
     }
     
-    private void HandleGamepadTouchEvent(in SDL.Event @event)
+    private void HandleGamepadTouchEvent(in SDL_Event @event)
     {
-        var gpId = @event.GTouchpad.Which;
+        var gpId = @event.gtouchpad.which;
         var gp = _gamepads.GetValueOrDefault(gpId);
-        gp?.ProcessTouchpadEvent(in @event.GTouchpad);
+        gp?.ProcessTouchpadEvent(in @event.gtouchpad);
     }
     
-    private void HandleRemappedEvent(in SDL.Event @event)
+    private void HandleRemappedEvent(in SDL_Event @event)
     {
-        var gpId = @event.GDevice.Which;
+        var gpId = @event.gdevice.which;
         var gp = _gamepads.GetValueOrDefault(gpId);
         gp?.ProcessRemapEvent();
     }
     
-    private void HandleMouseConnectionEvent(in SDL.Event @event)
+    private void HandleMouseConnectionEvent(in SDL_Event @event)
     {
-        var gpId = @event.MDevice.Which;
-        if (gpId == SDL.TouchMouseID)
-            return;
+        var gpId = @event.mdevice.which;
         
-        if (@event.MDevice.Type == SDL.EventType.MouseAdded)
+        if (@event.mdevice.type == SDL_EventType.SDL_EVENT_MOUSE_ADDED)
         {
             if (gpId != 0) // Only add non-0 mice when they're used later
                 return;
-            
+
             var existingMouse = new SdlMouse(gpId);
             AddInputDevice(existingMouse);
         }
-        else if (@event.MDevice.Type == SDL.EventType.MouseRemoved)
+        else if (@event.mdevice.type == SDL_EventType.SDL_EVENT_MOUSE_REMOVED)
         {
             if (!_mice.TryGetValue(gpId, out var existingMouse))
             {
                 // If this ever happens it means we didn't catch a mouse being inserted, which is a failure on our part.
                 throw new InvalidOperationException(
-                    "No existing keyboard instance in lookup table, this is a bug in Radish.Windowing (or less likely, SDL3)");
+                    "No existing mouse instance in lookup table, this is a bug in Radish.Windowing (or less likely, SDL3)");
             }
         
             existingMouse.ClearEvents();
@@ -335,12 +334,10 @@ public class Sdl3InputContext : IInputContext
         }
     }
     
-    private void HandleMouseButtonEvent(in SDL.Event @event)
+    private void HandleMouseButtonEvent(in SDL_Event @event)
     {
-        var gpId = @event.Button.Which;
-        if (gpId == SDL.TouchMouseID)
-            return;
-        
+        var gpId = @event.button.which;
+
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
         {
@@ -348,15 +345,13 @@ public class Sdl3InputContext : IInputContext
             AddInputDevice(m);
         }
         
-        m.ProcessButtonEvent(in @event.Button);
+        m.ProcessButtonEvent(in @event.button);
     }
     
-    private void HandleMouseMotionEvent(in SDL.Event @event)
+    private void HandleMouseMotionEvent(in SDL_Event @event)
     {
-        var gpId = @event.Motion.Which;
-        if (gpId == SDL.TouchMouseID)
-            return;
-        
+        var gpId = @event.motion.which;
+
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
         {
@@ -364,15 +359,13 @@ public class Sdl3InputContext : IInputContext
             AddInputDevice(m);
         }
         
-        m.ProcessMotionEvent(in @event.Motion);
+        m.ProcessMotionEvent(in @event.motion);
     }
     
-    private void HandleMouseWheelEvent(in SDL.Event @event)
+    private void HandleMouseWheelEvent(in SDL_Event @event)
     {
-        var gpId = @event.Wheel.Which;
-        if (gpId == SDL.TouchMouseID)
-            return;
-        
+        var gpId = @event.wheel.which;
+
         // Like with keyboards, we only add mice once they're used.
         if (!_mice.TryGetValue(gpId, out var m))
         {
@@ -380,7 +373,7 @@ public class Sdl3InputContext : IInputContext
             AddInputDevice(m);
         }
         
-        m.ProcessWheelEvent(in @event.Wheel);
+        m.ProcessWheelEvent(in @event.wheel);
     }
     
     #endregion
@@ -438,11 +431,11 @@ public class Sdl3InputContext : IInputContext
     /// <inheritdoc />
     public IGamepad? GetGamepadByPlayerIndex(int index)
     {
-        var gp = SDL.GetGamepadFromPlayerIndex(index);
+        var gp = SDL_GetGamepadFromPlayerIndex(index);
         if (gp == IntPtr.Zero)
             return null;
 
-        var id = SDL.GetGamepadID(gp);
+        var id = SDL_GetGamepadID(gp);
         if (id == 0)
             return null;
 
@@ -452,58 +445,64 @@ public class Sdl3InputContext : IInputContext
     /// <inheritdoc />
     public void BeginTextInput(TextInputType type, TextInputCapitalization capitalization, TextInputFlags flags)
     {
-        var props = SDL.CreateProperties();
+        var props = SDL_CreateProperties();
         var inputType = type switch
         {
-            TextInputType.Text => SDL.TextInputType.Text,
-            TextInputType.Name => SDL.TextInputType.TextName,
-            TextInputType.Email => SDL.TextInputType.TextEmail,
-            TextInputType.Username => SDL.TextInputType.TextUsername,
-            TextInputType.Password => SDL.TextInputType.NumberPasswordHidden,
-            TextInputType.Number => SDL.TextInputType.Number,
-            TextInputType.Pin => SDL.TextInputType.NumberPasswordHidden,
+            TextInputType.Text => SDL_TextInputType.SDL_TEXTINPUT_TYPE_TEXT,
+            TextInputType.Name => SDL_TextInputType.SDL_TEXTINPUT_TYPE_TEXT_NAME,
+            TextInputType.Email => SDL_TextInputType.SDL_TEXTINPUT_TYPE_TEXT_EMAIL,
+            TextInputType.Username => SDL_TextInputType.SDL_TEXTINPUT_TYPE_TEXT_USERNAME,
+            TextInputType.Password => SDL_TextInputType.SDL_TEXTINPUT_TYPE_TEXT_PASSWORD_HIDDEN,
+            TextInputType.Number => SDL_TextInputType.SDL_TEXTINPUT_TYPE_NUMBER,
+            TextInputType.Pin => SDL_TextInputType.SDL_TEXTINPUT_TYPE_NUMBER_PASSWORD_HIDDEN,
             _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
         };
 
         var capsMode = capitalization switch
         {
-            TextInputCapitalization.None => SDL.Capitalization.None,
-            TextInputCapitalization.Sentences => SDL.Capitalization.Sentences,
-            TextInputCapitalization.Words => SDL.Capitalization.Words,
-            TextInputCapitalization.Letters => SDL.Capitalization.Letters,
+            TextInputCapitalization.None => SDL_Capitalization.SDL_CAPITALIZE_NONE,
+            TextInputCapitalization.Sentences => SDL_Capitalization.SDL_CAPITALIZE_SENTENCES,
+            TextInputCapitalization.Words => SDL_Capitalization.SDL_CAPITALIZE_WORDS,
+            TextInputCapitalization.Letters => SDL_Capitalization.SDL_CAPITALIZE_LETTERS,
             _ => throw new ArgumentOutOfRangeException(nameof(capitalization), capitalization, null)
         };
 
-        SDL.SetNumberProperty(props, SDL.Props.TextInputTypeNumber, (long)inputType);
-        SDL.SetNumberProperty(props, SDL.Props.TextInputCapitalizationNumber, (long)capsMode);
-        SDL.SetBooleanProperty(props, SDL.Props.TextInputAutoCorrectBoolean,
+        SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_TYPE_NUMBER, (long)inputType);
+        SDL_SetNumberProperty(props, SDL_PROP_TEXTINPUT_CAPITALIZATION_NUMBER, (long)capsMode);
+        SDL_SetBooleanProperty(props, SDL_PROP_TEXTINPUT_AUTOCORRECT_BOOLEAN,
             flags.HasFlag(TextInputFlags.EnableAutoCorrect));
-        SDL.SetBooleanProperty(props, SDL.Props.TextInputMultilineBoolean,
+        SDL_SetBooleanProperty(props, SDL_PROP_TEXTINPUT_MULTILINE_BOOLEAN,
             flags.HasFlag(TextInputFlags.MultilineTextInput));
 
-        SDL.StartTextInputWithProperties(_owner.NativeHandle, props);
-        SDL.DestroyProperties(props);
+        SDL_StartTextInputWithProperties(_owner.NativeHandle, props);
+        SDL_DestroyProperties(props);
     }
 
     /// <inheritdoc/>
     public void EndTextInput()
     {
-        SDL.StopTextInput(_owner.NativeHandle);
+        SDL_StopTextInput(_owner.NativeHandle);
     }
 
     /// <inheritdoc />
     public unsafe void SetTextInputArea(Rectangle? rect, int cursorOffset)
     {
-        var r = new SDL.Rect();
         if (rect.HasValue)
         {
-            r.X = rect.Value.X;
-            r.Y = rect.Value.Y;
-            r.W = rect.Value.Width;
-            r.H = rect.Value.Height;
+            var r = new SDL_Rect
+            {
+                x = rect.Value.X,
+                y = rect.Value.Y,
+                w = rect.Value.Width,
+                h = rect.Value.Height
+            };
+
+            SDL_SetTextInputArea(_owner.NativeHandle, ref r, cursorOffset);
         }
-        
-        SDL.SetTextInputArea(_owner.NativeHandle, rect.HasValue ? (IntPtr)(&r) : IntPtr.Zero, cursorOffset);
+        else
+        {
+            SDL_SetTextInputArea(_owner.NativeHandle, ref Unsafe.NullRef<SDL_Rect>(), cursorOffset);
+        }
     }
 
     #endregion

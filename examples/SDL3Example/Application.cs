@@ -7,7 +7,7 @@ using System.Text;
 using ColorHelper;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3;
-using SDL3;
+using static SDL3.SDL;
 using ColorConverter = ColorHelper.ColorConverter;
 
 namespace Radish.Windowing.Examples;
@@ -67,12 +67,12 @@ public class Application : IDisposable
         _input.DeviceRemoved += OnDeviceRemoved;
         _input.TextInput += OnTextInput;
 
-        _graphicsDevice = SDL.CreateRenderer(_window.NativeHandle, null);
+        _graphicsDevice = SDL_CreateRenderer(_window.NativeHandle, null!);
         if (_graphicsDevice == IntPtr.Zero)
-            throw new NativeWindowException(SDL.GetError());
+            throw new NativeWindowException(SDL_GetError());
 
         // Enable vsync
-        SDL.SetRenderVSync(_graphicsDevice, 1);
+        SDL_SetRenderVSync(_graphicsDevice, 1);
 
         _window.IsVisible = true;
     }
@@ -101,28 +101,30 @@ public class Application : IDisposable
         if (s < 1)
             s = 1;
         
-        SDL.SetRenderScale(_graphicsDevice, s, s);
+        SDL_SetRenderScale(_graphicsDevice, s, s);
         
-        SDL.SetRenderDrawColor(_graphicsDevice, 
+        SDL_SetRenderDrawColor(_graphicsDevice, 
             Color.DarkSlateGray.R, Color.DarkSlateGray.G, 
             Color.DarkSlateGray.B, Color.DarkSlateGray.A);
-        SDL.RenderClear(_graphicsDevice);
+        SDL_RenderClear(_graphicsDevice);
         
         // Draw a square to visualise relative mouse movement
         var c = ColorConverter.HsvToRgb(new HSV(
             (int)_hue,
             100, 100)
         );
-        SDL.SetRenderDrawColor(_graphicsDevice, c.R, c.G, c.B, (byte)SDL.AlphaOpaque);
-        SDL.RenderFillRect(_graphicsDevice, new SDL.FRect
+        SDL_SetRenderDrawColor(_graphicsDevice, c.R, c.G, c.B, 255);
+        var rr = new SDL_FRect
         {
-            X = _squarePos.X + 8,
-            Y = _squarePos.Y + 8,
-            W = 16,
-            H = 16
-        });
+            x = _squarePos.X + 8,
+            y = _squarePos.Y + 8,
+            w = 16,
+            h = 16
+        };
 
-        SDL.SetRenderDrawColor(_graphicsDevice, 255, 255, 255, (byte)SDL.AlphaOpaque);
+        SDL_RenderFillRect(_graphicsDevice, ref rr);
+
+        SDL_SetRenderDrawColor(_graphicsDevice, 255, 255, 255, 255);
 
         var dp = new Point(12, 12);
 
@@ -130,7 +132,7 @@ public class Application : IDisposable
         PrintSomeTextPlease($"Radish.Windowing SDL3 Example {n?.InformationalVersion}");
         PrintSomeTextPlease($"OS: {RuntimeInformation.OSDescription}");
         PrintSomeTextPlease($"Runtime: {RuntimeInformation.FrameworkDescription}");
-        PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL.GetVersion())}");
+        PrintSomeTextPlease($"SDL version: {VersionUtility.ParseSdlVersion(SDL_GetVersion())}");
         PrintSomeTextPlease($"Frame time: {deltaTime.TotalMilliseconds:F2}ms");
         
         dp.Y += 12;
@@ -187,12 +189,12 @@ public class Application : IDisposable
             PrintSomeTextPlease($"    Supports {d.FullscreenVideoModes.Count()} video modes");
         }
         
-        SDL.RenderPresent(_graphicsDevice);
+        SDL_RenderPresent(_graphicsDevice);
         return;
 
         void PrintSomeTextPlease(string text)
         {
-            SDL.RenderDebugText(_graphicsDevice, dp.X, dp.Y, text);
+            SDL_RenderDebugText(_graphicsDevice, dp.X, dp.Y, text);
             dp.Y += 12;
         }
     }
@@ -256,7 +258,7 @@ public class Application : IDisposable
         
         if (_graphicsDevice != IntPtr.Zero)
         {
-            SDL.DestroyRenderer(_graphicsDevice);
+            SDL_DestroyRenderer(_graphicsDevice);
             _graphicsDevice = IntPtr.Zero;
         }
     }

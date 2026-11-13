@@ -2,7 +2,6 @@ using System.Collections;
 using System.Numerics;
 using Radish.Windowing.InputDevices;
 using Radish.Windowing.SDL3.Utility;
-using SDL3;
 
 namespace Radish.Windowing.SDL3.InputDevices;
 
@@ -15,7 +14,7 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
         public ITouchpad.FingerData[] FingersInternal => fingers;
     }
     
-    public bool IsConnected => SDL.IsGamepad(InstanceId);
+    public bool IsConnected => SDL_IsGamepad(InstanceId);
     
     private static readonly Dictionary<GamepadButtons, int>
         ButtonLookup = EnumUtility.GetEnumIndexMap<GamepadButtons>();
@@ -31,18 +30,18 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
     {
         get
         {
-            var type = SDL.GetGamepadTypeForID(InstanceId);
+            var type = SDL_GetGamepadTypeForID(InstanceId);
             return type switch
             {
-                SDL.GamepadType.Xbox360 => GamepadModel.Xbox360,
-                SDL.GamepadType.XboxOne => GamepadModel.XboxOne,
-                SDL.GamepadType.PS3 => GamepadModel.Dualshock3,
-                SDL.GamepadType.PS4 => GamepadModel.Dualshock4,
-                SDL.GamepadType.PS5 => GamepadModel.Dualsense,
-                SDL.GamepadType.NintendoSwitchPro => GamepadModel.SwitchPro,
-                SDL.GamepadType.NintendoSwitchJoyconLeft => GamepadModel.SwitchJoyconLeft,
-                SDL.GamepadType.NintendoSwitchJoyconRight => GamepadModel.SwitchJoyconRight,
-                SDL.GamepadType.NintendoSwitchJoyconPair => GamepadModel.SwitchJoyconPair,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_XBOX360 => GamepadModel.Xbox360,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_XBOXONE => GamepadModel.XboxOne,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_PS3 => GamepadModel.Dualshock3,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_PS4 => GamepadModel.Dualshock4,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_PS5 => GamepadModel.Dualsense,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_PRO => GamepadModel.SwitchPro,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_LEFT => GamepadModel.SwitchJoyconLeft,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_RIGHT => GamepadModel.SwitchJoyconRight,
+                SDL_GamepadType.SDL_GAMEPAD_TYPE_NINTENDO_SWITCH_JOYCON_PAIR => GamepadModel.SwitchJoyconPair,
                 _ => GamepadModel.Generic
             };
         }
@@ -50,11 +49,11 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
 
     public int PlayerIndex
     {
-        get => SDL.GetGamepadPlayerIndexForID(InstanceId);
+        get => SDL_GetGamepadPlayerIndexForID(InstanceId);
         set
         {
-            var ptr = SDL.GetGamepadFromID(InstanceId);
-            SDL.SetGamepadPlayerIndex(ptr, value < -1 ? -1 : value);
+            var ptr = SDL_GetGamepadFromID(InstanceId);
+            SDL_SetGamepadPlayerIndex(ptr, value < -1 ? -1 : value);
         }
     }
 
@@ -68,58 +67,58 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
     {
         InstanceId = instanceId;
 
-        var ptr = SDL.GetGamepadFromID(InstanceId);
+        var ptr = SDL_GetGamepadFromID(InstanceId);
         // What even has more than 1 touchpad? steam deck/new steam controller?
-        _touchpads = new SdlTouchpad[SDL.GetNumGamepadTouchpads(ptr)];
+        _touchpads = new SdlTouchpad[SDL_GetNumGamepadTouchpads(ptr)];
         for (var i = 0; i < _touchpads.Length; ++i)
         {
-            var fingerCount = SDL.GetNumGamepadTouchpadFingers(ptr, i);
+            var fingerCount = SDL_GetNumGamepadTouchpadFingers(ptr, i);
             _touchpads[i] = new SdlTouchpad(new ITouchpad.FingerData[fingerCount]);
             for (var j = 0; j < _touchpads[i].FingersInternal.Length; ++j)
                 _touchpads[i].FingersInternal[j] = new ITouchpad.FingerData(new Vector2(float.NaN, float.NaN), -1);
         }
     }
 
-    public void ProcessButtonEvent(in SDL.GamepadButtonEvent @event)
+    public void ProcessButtonEvent(in SDL_GamepadButtonEvent @event)
     {
-        var rButton = SdlToRadishButtons.GetValueOrDefault((SDL.GamepadButton)@event.Button, GamepadButtons.None);
+        var rButton = SdlToRadishButtons.GetValueOrDefault((SDL_GamepadButton)@event.button, GamepadButtons.None);
         if (rButton == GamepadButtons.None)
             return;
 
-        _buttonStates[ButtonLookup[rButton]] = @event.Down;
+        _buttonStates[ButtonLookup[rButton]] = @event.down;
         
-        if (@event.Down)
+        if (@event.down)
             ButtonDown?.Invoke(rButton, true);
         else
             ButtonUp?.Invoke(rButton, false);
     }
 
-    public void ProcessAxisEvent(in SDL.GamepadAxisEvent @event)
+    public void ProcessAxisEvent(in SDL_GamepadAxisEvent @event)
     {
-        var rAxis = SdlToRadishAxes.GetValueOrDefault((SDL.GamepadAxis)@event.Axis, GamepadAxes.None);
+        var rAxis = SdlToRadishAxes.GetValueOrDefault((SDL_GamepadAxis)@event.axis, GamepadAxes.None);
         if (rAxis == GamepadAxes.None)
             return;
         
-        _axisStates[AxisLookup[rAxis]] = (float)@event.Value / short.MaxValue;
+        _axisStates[AxisLookup[rAxis]] = (float)@event.value / short.MaxValue;
     }
 
-    public void ProcessTouchpadEvent(in SDL.GamepadTouchpadEvent @event)
+    public void ProcessTouchpadEvent(in SDL_GamepadTouchpadEvent @event)
     {
-        if (@event.Touchpad < 0 || @event.Touchpad >= _touchpads.Length)
+        if (@event.touchpad < 0 || @event.touchpad >= _touchpads.Length)
             return;
 
-        var tPad = _touchpads[@event.Touchpad];
-        if (@event.Finger < 0 || @event.Finger >= tPad.FingersInternal.Length)
+        var tPad = _touchpads[@event.touchpad];
+        if (@event.finger < 0 || @event.finger >= tPad.FingersInternal.Length)
             return;
         
-        if (@event.Type == SDL.EventType.GamepadTouchpadUp)
+        if (@event.type == SDL_EventType.SDL_EVENT_GAMEPAD_TOUCHPAD_UP)
         {
-            tPad.FingersInternal[@event.Finger] = new ITouchpad.FingerData(new Vector2(float.NaN, float.NaN), -1);
+            tPad.FingersInternal[@event.finger] = new ITouchpad.FingerData(new Vector2(float.NaN, float.NaN), -1);
         }
         else
         {
-            tPad.FingersInternal[@event.Finger] =
-                new ITouchpad.FingerData(new Vector2(@event.X, @event.Y), @event.Pressure);
+            tPad.FingersInternal[@event.finger] =
+                new ITouchpad.FingerData(new Vector2(@event.x, @event.y), @event.pressure);
         }
     }
     
@@ -141,33 +140,33 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
 
     public void ProcessRemapEvent() => Remapped?.Invoke();
 
-    private static readonly Dictionary<SDL.GamepadButton, GamepadButtons> SdlToRadishButtons = new()
+    private static readonly Dictionary<SDL_GamepadButton, GamepadButtons> SdlToRadishButtons = new()
     {
-        { SDL.GamepadButton.North, GamepadButtons.FacePadNorth },
-        { SDL.GamepadButton.South, GamepadButtons.FacePadSouth },
-        { SDL.GamepadButton.East, GamepadButtons.FacePadEast },
-        { SDL.GamepadButton.West, GamepadButtons.FacePadWest },
-        { SDL.GamepadButton.DPadUp, GamepadButtons.DPadNorth },
-        { SDL.GamepadButton.DPadDown, GamepadButtons.DPadSouth },
-        { SDL.GamepadButton.DPadLeft, GamepadButtons.DPadWest },
-        { SDL.GamepadButton.DPadRight, GamepadButtons.DPadEast },
-        { SDL.GamepadButton.LeftShoulder, GamepadButtons.LeftShoulder },
-        { SDL.GamepadButton.RightShoulder, GamepadButtons.RightShoulder },
-        { SDL.GamepadButton.Start, GamepadButtons.Start },
-        { SDL.GamepadButton.Back, GamepadButtons.Select },
-        { SDL.GamepadButton.LeftStick, GamepadButtons.LeftStickPress },
-        { SDL.GamepadButton.RightStick, GamepadButtons.RightStickPress },
-        { SDL.GamepadButton.Touchpad, GamepadButtons.TouchpadPress },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_NORTH, GamepadButtons.FacePadNorth },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_SOUTH, GamepadButtons.FacePadSouth },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_EAST, GamepadButtons.FacePadEast },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_WEST, GamepadButtons.FacePadWest },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_UP, GamepadButtons.DPadNorth },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_DOWN, GamepadButtons.DPadSouth },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_LEFT, GamepadButtons.DPadWest },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_DPAD_RIGHT, GamepadButtons.DPadEast },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_LEFT_SHOULDER, GamepadButtons.LeftShoulder },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER, GamepadButtons.RightShoulder },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_START, GamepadButtons.Start },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_BACK, GamepadButtons.Select },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_LEFT_STICK, GamepadButtons.LeftStickPress },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_RIGHT_STICK, GamepadButtons.RightStickPress },
+        { SDL_GamepadButton.SDL_GAMEPAD_BUTTON_TOUCHPAD, GamepadButtons.TouchpadPress },
     };
 
-    private static readonly Dictionary<SDL.GamepadAxis, GamepadAxes> SdlToRadishAxes = new()
+    private static readonly Dictionary<SDL_GamepadAxis, GamepadAxes> SdlToRadishAxes = new()
     {
-        { SDL.GamepadAxis.LeftTrigger, GamepadAxes.LeftTrigger },
-        { SDL.GamepadAxis.RightTrigger, GamepadAxes.RightTrigger },
-        { SDL.GamepadAxis.LeftX, GamepadAxes.LeftStickX },
-        { SDL.GamepadAxis.LeftY, GamepadAxes.LeftStickY },
-        { SDL.GamepadAxis.RightX, GamepadAxes.RightStickX },
-        { SDL.GamepadAxis.RightY, GamepadAxes.RightStickY }
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFT_TRIGGER, GamepadAxes.LeftTrigger },
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHT_TRIGGER, GamepadAxes.RightTrigger },
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFTX, GamepadAxes.LeftStickX },
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_LEFTY, GamepadAxes.LeftStickY },
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHTX, GamepadAxes.RightStickX },
+        { SDL_GamepadAxis.SDL_GAMEPAD_AXIS_RIGHTY, GamepadAxes.RightStickY }
     };
 
     public void ClearEvents()
@@ -179,7 +178,7 @@ internal sealed class SdlGamepad : SdlBaseInputDevice, IGamepad
 
     public override string ToString()
     {
-        var s = SDL.GetGamepadNameForID(InstanceId);
+        var s = SDL_GetGamepadNameForID(InstanceId);
         return string.IsNullOrEmpty(s) ? "Unnamed Gamepad" : s;
     }
 }
