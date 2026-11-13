@@ -39,6 +39,9 @@ public class Sdl3InputContext : IInputContext
     /// <inheritdoc />
     public IMouse? PrimaryMouse => _mice.GetValueOrDefault(0u);
 
+    /// <inheritdoc/>
+    public IKeyboard? PrimaryKeyboard => _keyboards.GetValueOrDefault(0u);
+
     /// <inheritdoc />
     public bool RelativeMouseMode
     {

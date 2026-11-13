@@ -67,6 +67,11 @@ public interface IInputContext : IDisposable
     public bool TextInputActive { get; }
 
     /// <summary>
+    /// Gets the 'main' keyboard, if one is present.
+    /// </summary>
+    public IKeyboard? PrimaryKeyboard { get; }
+
+    /// <summary>
     /// Gets the gamepad with the given player ID, if one exists.
     /// </summary>
     /// <param name="index">The index to check.</param>
