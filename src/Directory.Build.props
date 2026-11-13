@@ -3,6 +3,7 @@
         <Authors>Audrey Castillo</Authors>
         <Copyright>Copyright (c) Audrey Castillo</Copyright>
         <Product>Radish.Windowing</Product>
+        <Version>1.0.0-rc1</Version>
         <LangVersion>14</LangVersion>
         <SymbolPackageFormat>snupkg</SymbolPackageFormat>
         <IncludeSymbols>true</IncludeSymbols>
@@ -16,11 +17,5 @@
     <ItemGroup>
         <None Include="..\..\README.md" Pack="true" PackagePath=""/>
         <None Include="..\..\LICENSE" Pack="true" PackagePath=""/>
-    </ItemGroup>
-    <ItemGroup>
-        <PackageReference Include="GitVersion.MsBuild" Version="6.8.2">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
     </ItemGroup>
 </Project>
